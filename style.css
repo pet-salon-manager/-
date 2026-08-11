@@ -761,3 +761,26 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   font-weight:900;
   cursor:pointer;
 }
+
+/* PawPal v18.1: reliable scanner close controls */
+.barcode-close{
+  position:relative;
+  z-index:10002;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer;
+  flex:0 0 auto;
+}
+.barcode-bottom-close{
+  width:100%;
+  margin-top:10px;
+  border:0;
+  border-radius:14px;
+  padding:12px 14px;
+  background:#f6eef3;
+  color:#8f6079;
+  font-size:13px;
+  font-weight:900;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}

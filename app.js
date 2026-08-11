@@ -1134,7 +1134,29 @@ async function decodePhotoFile(file){
 }
 
 $("#openBarcodeCameraBtn").onclick=openBarcodeCamera;
-$("#closeBarcodeCameraBtn").onclick=stopBarcodeCamera;
+
+function closeBarcodeScannerEvent(e){
+  if(e){
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  stopBarcodeCamera();
+  return false;
+}
+
+const topCloseBtn=$("#closeBarcodeCameraBtn");
+if(topCloseBtn){
+  topCloseBtn.onclick=closeBarcodeScannerEvent;
+  topCloseBtn.addEventListener("touchend",closeBarcodeScannerEvent,{passive:false});
+  topCloseBtn.addEventListener("pointerup",closeBarcodeScannerEvent);
+}
+
+const bottomCloseBtn=$("#closeBarcodeCameraBottomBtn");
+if(bottomCloseBtn){
+  bottomCloseBtn.onclick=closeBarcodeScannerEvent;
+  bottomCloseBtn.addEventListener("touchend",closeBarcodeScannerEvent,{passive:false});
+}
+
 $("#barcodePhotoInput").onchange=e=>{
   const file=e.target.files?.[0];
   if(file)decodePhotoFile(file);
@@ -1142,11 +1164,25 @@ $("#barcodePhotoInput").onchange=e=>{
 };
 
 $("#barcodeScannerModal").addEventListener("click",e=>{
-  if(e.target.id==="barcodeScannerModal")stopBarcodeCamera();
+  if(e.target.id==="barcodeScannerModal"){
+    e.preventDefault();
+    stopBarcodeCamera();
+  }
 });
+$("#barcodeScannerModal").addEventListener("touchend",e=>{
+  if(e.target.id==="barcodeScannerModal"){
+    e.preventDefault();
+    stopBarcodeCamera();
+  }
+},{passive:false});
 
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden&&barcodeStream)stopBarcodeCamera();
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&$("#barcodeScannerModal")?.classList.contains("open")){
+    stopBarcodeCamera();
+  }
 });
 
 $("#themeBtn").onclick=()=>document.body.classList.toggle("alt");

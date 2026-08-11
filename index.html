@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.1</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -593,7 +593,7 @@
           <b>📷 バーコード読み取り</b>
           <div class="barcode-sub">JAN/EANバーコードを枠の中央に合わせてください</div>
         </div>
-        <button id="closeBarcodeCameraBtn" class="barcode-close" aria-label="閉じる">×</button>
+        <button id="closeBarcodeCameraBtn" type="button" class="barcode-close" aria-label="閉じる">×</button>
       </div>
 
       <div class="barcode-video-wrap">
@@ -609,6 +609,8 @@
         🖼️ 写真から読み取る
         <input id="barcodePhotoInput" type="file" accept="image/*" capture="environment" hidden>
       </label>
+
+      <button id="closeBarcodeCameraBottomBtn" class="barcode-bottom-close">← 商品画面に戻る</button>
 
       <div class="barcode-help">
         <b>うまく読めないとき</b><br>

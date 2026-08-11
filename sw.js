@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v18-ios-ean-20260812';
+const CACHE='pawpal-v18-1-closefix-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{
