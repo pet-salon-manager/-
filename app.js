@@ -1148,146 +1148,226 @@ $("#askAssistantBtn").onclick=()=>{const q=$("#assistantQuestion").value.trim();
 $("#clearAssistantBtn").onclick=()=>{$("#assistantQuestion").value="";$("#assistantAnswer").innerHTML='<div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>';};
 
 
+
 const CLOUD_SETTINGS_KEY="pawpalCloudSettings";
+const AUTH_SESSION_KEY="pawpalAuthSession";
+
 function getCloudSettings(){
   try{return JSON.parse(localStorage.getItem(CLOUD_SETTINGS_KEY)||"{}")}catch{return{}}
 }
-function setCloudSettings(v){
-  localStorage.setItem(CLOUD_SETTINGS_KEY,JSON.stringify(v));
+function setCloudSettings(v){localStorage.setItem(CLOUD_SETTINGS_KEY,JSON.stringify(v))}
+function getAuthSession(){
+  try{return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY)||"null")}catch{return null}
 }
-async function sha256(text){
-  const data=new TextEncoder().encode(text);
-  const hash=await crypto.subtle.digest("SHA-256",data);
-  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("");
-}
-function renderCloudSettings(){
-  const s=getCloudSettings();
-  if($("#supabaseUrl"))$("#supabaseUrl").value=s.url||"";
-  if($("#supabaseAnonKey"))$("#supabaseAnonKey").value=s.anonKey||"";
-  if($("#familyName"))$("#familyName").value=s.familyName||"";
-  if($("#familyCode"))$("#familyCode").value=s.familyCode||"";
-  if($("#lastSyncText"))$("#lastSyncText").textContent=s.lastSync?`最終 ${s.lastSync}`:"未同期";
-  if($("#cloudStatusBadge"))$("#cloudStatusBadge").textContent=(s.url&&s.anonKey&&s.familyCode)?"設定済み":"未接続";
+function setAuthSession(v){
+  if(v)localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify(v));
+  else localStorage.removeItem(AUTH_SESSION_KEY);
 }
 function cloudMessage(text,type=""){
   const el=$("#cloudMessage");if(!el)return;
-  el.className="cloud-message"+(type?` ${type}`:"");
-  el.textContent=text;
+  el.className="cloud-message"+(type?` ${type}`:"");el.textContent=text;
 }
-$("#saveCloudSettingsBtn").onclick=()=>{
-  const url=$("#supabaseUrl").value.trim().replace(/\/+$/,"");
-  const anonKey=$("#supabaseAnonKey").value.trim();
-  if(!url||!anonKey){alert("Project URLとAnon Keyを入力してください");return;}
-  const s=getCloudSettings();setCloudSettings({...s,url,anonKey});renderCloudSettings();cloudMessage("Supabase接続設定を保存しました。","ok");
-};
-$("#saveFamilyBtn").onclick=()=>{
-  const familyName=$("#familyName").value.trim(),familyCode=$("#familyCode").value.trim();
-  if(!familyName||familyCode.length<8){alert("家族スペース名と8文字以上の共有コードを入力してください");return;}
-  const s=getCloudSettings();setCloudSettings({...s,familyName,familyCode});renderCloudSettings();cloudMessage("家族スペースを保存しました。","ok");
-};
-
-async function buildBackupPayload(){
-  let docsMeta=[],albumMeta=[];
-  try{
-    const docs=await getDocuments();
-    docsMeta=docs.map(d=>({id:d.id,petId:d.petId,type:d.type,title:d.title,date:d.date,memo:d.memo,fileName:d.fileName,mime:d.mime,size:d.size}));
-  }catch(_){}
-  try{
-    const albums=await getAlbumItems();
-    albumMeta=albums.map(a=>({id:a.id,petId:a.petId,date:a.date,weight:a.weight,memo:a.memo}));
-  }catch(_){}
-  return {
-    version:12,
-    exportedAt:new Date().toISOString(),
-    pawpalState:state,
-    documentMetadata:docsMeta,
-    albumMetadata:albumMeta
-  };
+function authMessage(text,type=""){
+  const el=$("#authMessage");if(!el)return;
+  el.className="cloud-message"+(type?` ${type}`:"");el.textContent=text;
 }
-
-async function cloudIdentity(){
+function familyMessage(text,type=""){
+  const el=$("#familyMessage");if(!el)return;
+  el.className="cloud-message"+(type?` ${type}`:"");el.textContent=text;
+}
+function supabaseBase(){
   const s=getCloudSettings();
-  if(!s.url||!s.anonKey||!s.familyCode)throw new Error("Supabase設定と家族共有コードを保存してください");
-  return {s,familyId:await sha256("pawpal-family:"+s.familyCode)};
+  if(!s.url||!s.anonKey)throw new Error("SupabaseのProject URLとAnon Keyを保存してください");
+  return s;
 }
-
-async function supabaseRequest(path,options={}){
-  const {s}=await cloudIdentity();
+async function authFetch(path,options={}){
+  const s=supabaseBase();
+  const headers={"apikey":s.anonKey,"Content-Type":"application/json",...(options.headers||{})};
+  const res=await fetch(`${s.url}/auth/v1/${path}`,{...options,headers});
+  const txt=await res.text();
+  let data=null;try{data=txt?JSON.parse(txt):null}catch{data=txt}
+  if(!res.ok)throw new Error(data?.msg||data?.message||`HTTP ${res.status}`);
+  return data;
+}
+async function restFetch(path,options={}){
+  const s=supabaseBase(),session=getAuthSession();
+  if(!session?.access_token)throw new Error("ログインしてください");
   const headers={
     "apikey":s.anonKey,
-    "Authorization":`Bearer ${s.anonKey}`,
+    "Authorization":`Bearer ${session.access_token}`,
     "Content-Type":"application/json",
     ...(options.headers||{})
   };
   const res=await fetch(`${s.url}/rest/v1/${path}`,{...options,headers});
-  if(!res.ok){
-    const text=await res.text();
-    throw new Error(text||`HTTP ${res.status}`);
-  }
   const txt=await res.text();
-  return txt?JSON.parse(txt):null;
+  let data=null;try{data=txt?JSON.parse(txt):null}catch{data=txt}
+  if(res.status===401){
+    setAuthSession(null);renderCloudSettings();throw new Error("ログインの有効期限が切れました。もう一度ログインしてください");
+  }
+  if(!res.ok)throw new Error(data?.message||data?.hint||data?.details||`HTTP ${res.status}`);
+  return data;
 }
+async function refreshSessionIfNeeded(){
+  const session=getAuthSession();
+  if(!session?.refresh_token)return session;
+  const expiresAt=Number(session.expires_at||0)*1000;
+  if(expiresAt && expiresAt-Date.now()>60000)return session;
+  try{
+    const data=await authFetch(`token?grant_type=refresh_token`,{
+      method:"POST",body:JSON.stringify({refresh_token:session.refresh_token})
+    });
+    const next={...data,expires_at:Math.floor(Date.now()/1000)+Number(data.expires_in||3600)};
+    setAuthSession(next);return next;
+  }catch{setAuthSession(null);return null}
+}
+function renderCloudSettings(){
+  const s=getCloudSettings(),session=getAuthSession();
+  if($("#supabaseUrl"))$("#supabaseUrl").value=s.url||"";
+  if($("#supabaseAnonKey"))$("#supabaseAnonKey").value=s.anonKey||"";
+  if($("#lastSyncText"))$("#lastSyncText").textContent=s.lastSync?`最終 ${s.lastSync}`:"未同期";
+  if($("#cloudStatusBadge"))$("#cloudStatusBadge").textContent=(s.url&&s.anonKey)?"設定済み":"未接続";
 
+  const logged=!!session?.access_token;
+  $("#authLoggedOut").style.display=logged?"none":"block";
+  $("#authLoggedIn").style.display=logged?"block":"none";
+  $("#authStatusBadge").textContent=logged?"ログイン中":"未ログイン";
+  $("#authEmailDisplay").textContent=session?.user?.email||"";
+  if($("#familyStatusBadge"))$("#familyStatusBadge").textContent=s.familyId?"参加中":"未参加";
+  if($("#currentFamilyBox"))$("#currentFamilyBox").style.display=s.familyId?"block":"none";
+  if($("#currentFamilyName"))$("#currentFamilyName").textContent=s.familyName||"";
+}
+$("#saveCloudSettingsBtn").onclick=()=>{
+  const url=$("#supabaseUrl").value.trim().replace(/\/+$/,""),anonKey=$("#supabaseAnonKey").value.trim();
+  if(!url||!anonKey){alert("Project URLとAnon Keyを入力してください");return}
+  const s=getCloudSettings();setCloudSettings({...s,url,anonKey});renderCloudSettings();cloudMessage("Supabase接続設定を保存しました。","ok");
+};
+$("#signupBtn").onclick=async()=>{
+  const email=$("#authEmail").value.trim(),password=$("#authPassword").value;
+  if(!email||password.length<6){alert("メールアドレスと6文字以上のパスワードを入力してください");return}
+  try{
+    const data=await authFetch("signup",{method:"POST",body:JSON.stringify({email,password})});
+    if(data?.access_token){
+      setAuthSession({...data,expires_at:Math.floor(Date.now()/1000)+Number(data.expires_in||3600)});
+      authMessage("新規登録してログインしました ✨","ok");
+    }else{
+      authMessage("登録しました。Supabaseの設定によっては確認メールを開いてからログインしてください。","ok");
+    }
+    renderCloudSettings();
+  }catch(e){authMessage(`登録できませんでした：${e.message}`,"error")}
+};
+$("#loginBtn").onclick=async()=>{
+  const email=$("#authEmail").value.trim(),password=$("#authPassword").value;
+  if(!email||!password){alert("メールアドレスとパスワードを入力してください");return}
+  try{
+    const data=await authFetch("token?grant_type=password",{method:"POST",body:JSON.stringify({email,password})});
+    setAuthSession({...data,expires_at:Math.floor(Date.now()/1000)+Number(data.expires_in||3600)});
+    authMessage("ログインしました 🔑","ok");renderCloudSettings();await loadCurrentFamily();
+  }catch(e){authMessage(`ログインできませんでした：${e.message}`,"error")}
+};
+$("#logoutBtn").onclick=async()=>{
+  try{
+    const s=supabaseBase(),session=getAuthSession();
+    if(session?.access_token){
+      await fetch(`${s.url}/auth/v1/logout`,{method:"POST",headers:{"apikey":s.anonKey,"Authorization":`Bearer ${session.access_token}`}});
+    }
+  }catch(_){}
+  setAuthSession(null);
+  const s=getCloudSettings();setCloudSettings({...s,familyId:null,familyName:null});
+  renderCloudSettings();authMessage("ログアウトしました。");
+};
+
+$("#familyCreateTab").onclick=()=>{
+  $("#familyCreateTab").classList.add("active");$("#familyJoinTab").classList.remove("active");
+  $("#familyCreatePanel").style.display="block";$("#familyJoinPanel").style.display="none";
+};
+$("#familyJoinTab").onclick=()=>{
+  $("#familyJoinTab").classList.add("active");$("#familyCreateTab").classList.remove("active");
+  $("#familyCreatePanel").style.display="none";$("#familyJoinPanel").style.display="block";
+};
+
+$("#createFamilyBtn").onclick=async()=>{
+  const name=$("#familyName").value.trim(),code=$("#familyCreateCode").value.trim();
+  if(!name||code.length<8){alert("家族名と8文字以上の共有コードを入力してください");return}
+  try{
+    await refreshSessionIfNeeded();
+    const rows=await restFetch("rpc/create_pawpal_family",{method:"POST",body:JSON.stringify({p_name:name,p_code:code})});
+    const row=Array.isArray(rows)?rows[0]:rows;
+    const s=getCloudSettings();setCloudSettings({...s,familyId:row?.family_id,familyName:row?.family_name||name});
+    renderCloudSettings();familyMessage("家族スペースを作成しました 🏠","ok");await loadCurrentFamily();
+  }catch(e){familyMessage(`作成できませんでした：${e.message}`,"error")}
+};
+
+$("#joinFamilyBtn").onclick=async()=>{
+  const code=$("#familyJoinCode").value.trim();
+  if(code.length<8){alert("共有コードを入力してください");return}
+  try{
+    await refreshSessionIfNeeded();
+    const rows=await restFetch("rpc/join_pawpal_family",{method:"POST",body:JSON.stringify({p_code:code})});
+    const row=Array.isArray(rows)?rows[0]:rows;
+    const s=getCloudSettings();setCloudSettings({...s,familyId:row?.family_id,familyName:row?.family_name||"家族スペース"});
+    renderCloudSettings();familyMessage("家族スペースに参加しました 🤝","ok");await loadCurrentFamily();
+  }catch(e){familyMessage(`参加できませんでした：${e.message}`,"error")}
+};
+
+async function loadCurrentFamily(){
+  const s=getCloudSettings(),session=getAuthSession();
+  if(!s.familyId||!session?.access_token)return;
+  try{
+    const rows=await restFetch(`pawpal_family_members?family_id=eq.${encodeURIComponent(s.familyId)}&select=user_id,role,created_at`,{method:"GET"});
+    $("#familyMembersText").textContent=`メンバー ${rows?.length||1}人`;
+  }catch(_){}
+}
+async function buildBackupPayload(){
+  let docsMeta=[],albumMeta=[];
+  try{docsMeta=(await getDocuments()).map(d=>({id:d.id,petId:d.petId,type:d.type,title:d.title,date:d.date,memo:d.memo,fileName:d.fileName,mime:d.mime,size:d.size}))}catch(_){}
+  try{albumMeta=(await getAlbumItems()).map(a=>({id:a.id,petId:a.petId,date:a.date,weight:a.weight,memo:a.memo}))}catch(_){}
+  return {version:13,exportedAt:new Date().toISOString(),pawpalState:state,documentMetadata:docsMeta,albumMetadata:albumMeta};
+}
 $("#cloudBackupBtn").onclick=async()=>{
   const btn=$("#cloudBackupBtn");btn.disabled=true;btn.textContent="バックアップ中…";
   try{
-    const {s,familyId}=await cloudIdentity();
+    await refreshSessionIfNeeded();
+    const s=getCloudSettings();if(!s.familyId)throw new Error("家族スペースに参加してください");
     const payload=await buildBackupPayload();
-    await supabaseRequest("pawpal_backups?on_conflict=family_id",{
+    await restFetch("pawpal_backups?on_conflict=family_id",{
       method:"POST",
       headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
-      body:JSON.stringify({family_id:familyId,family_name:s.familyName||"",payload,updated_at:new Date().toISOString()})
+      body:JSON.stringify({family_id:s.familyId,payload,updated_at:new Date().toISOString()})
     });
-    const now=new Date().toLocaleString("ja-JP");
-    setCloudSettings({...s,lastSync:now});
-    renderCloudSettings();cloudMessage("クラウドへのバックアップが完了しました ☁️","ok");
-  }catch(e){
-    console.error(e);cloudMessage("バックアップできませんでした。Supabase設定とSQLセットアップを確認してください。","error");
-  }finally{btn.disabled=false;btn.textContent="⬆️ クラウドへバックアップ";}
+    const now=new Date().toLocaleString("ja-JP");setCloudSettings({...s,lastSync:now});renderCloudSettings();cloudMessage("クラウドへのバックアップが完了しました ☁️","ok");
+  }catch(e){cloudMessage(`バックアップできませんでした：${e.message}`,"error")}
+  finally{btn.disabled=false;btn.textContent="⬆️ クラウドへバックアップ"}
 };
-
 $("#cloudRestoreBtn").onclick=async()=>{
   if(!confirm("クラウドのデータでこの端末のPawPalデータを置き換えますか？"))return;
   const btn=$("#cloudRestoreBtn");btn.disabled=true;btn.textContent="復元中…";
   try{
-    const {s,familyId}=await cloudIdentity();
-    const rows=await supabaseRequest(`pawpal_backups?family_id=eq.${familyId}&select=payload,updated_at&limit=1`,{method:"GET"});
+    await refreshSessionIfNeeded();
+    const s=getCloudSettings();if(!s.familyId)throw new Error("家族スペースに参加してください");
+    const rows=await restFetch(`pawpal_backups?family_id=eq.${encodeURIComponent(s.familyId)}&select=payload,updated_at&limit=1`,{method:"GET"});
     if(!rows?.length)throw new Error("バックアップが見つかりません");
-    const payload=rows[0].payload;
-    if(!payload?.pawpalState)throw new Error("バックアップ形式が不正です");
+    const payload=rows[0].payload;if(!payload?.pawpalState)throw new Error("バックアップ形式が不正です");
     localStorage.setItem("pawpalState",JSON.stringify(payload.pawpalState));
     setCloudSettings({...s,lastSync:new Date().toLocaleString("ja-JP")});
-    cloudMessage("復元しました。画面を再読み込みします。","ok");
-    setTimeout(()=>location.reload(),700);
-  }catch(e){
-    console.error(e);cloudMessage("復元できませんでした。バックアップがあるか確認してください。","error");
-  }finally{btn.disabled=false;btn.textContent="⬇️ クラウドから復元";}
+    cloudMessage("復元しました。画面を再読み込みします。","ok");setTimeout(()=>location.reload(),700);
+  }catch(e){cloudMessage(`復元できませんでした：${e.message}`,"error")}
+  finally{btn.disabled=false;btn.textContent="⬇️ クラウドから復元"}
 };
 
 $("#exportBackupBtn").onclick=async()=>{
   try{
-    const payload=await buildBackupPayload();
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;a.download=`PawPal_backup_${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),10000);
-  }catch{alert("バックアップを書き出せませんでした");}
+    const payload=await buildBackupPayload(),blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download=`PawPal_backup_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  }catch{alert("バックアップを書き出せませんでした")}
 };
-
 $("#importBackupFile").onchange=async(e)=>{
   const file=e.target.files?.[0];if(!file)return;
-  if(!confirm("このバックアップで現在の端末データを置き換えますか？")){e.target.value="";return;}
+  if(!confirm("このバックアップで現在の端末データを置き換えますか？")){e.target.value="";return}
   try{
-    const payload=JSON.parse(await file.text());
-    if(!payload?.pawpalState)throw new Error("invalid");
-    localStorage.setItem("pawpalState",JSON.stringify(payload.pawpalState));
-    alert("バックアップを読み込みました。再読み込みします。");
-    location.reload();
-  }catch{alert("PawPalのバックアップファイルではありません");}
+    const payload=JSON.parse(await file.text());if(!payload?.pawpalState)throw new Error("invalid");
+    localStorage.setItem("pawpalState",JSON.stringify(payload.pawpalState));alert("バックアップを読み込みました。再読み込みします。");location.reload();
+  }catch{alert("PawPalのバックアップファイルではありません")}
 };
-
 
 function renderAll(){
   const p=activePet();
@@ -1306,3 +1386,5 @@ try{if($("#docDate")&&!$("#docDate").value)$("#docDate").value=new Date().toISOS
 try{if($("#albumDate")&&!$("#albumDate").value)$("#albumDate").value=new Date().toISOString().slice(0,10);}catch(e){}
 try{if($("#lifeDate")&&!$("#lifeDate").value)$("#lifeDate").value=new Date().toISOString().slice(0,10);}catch(e){}
 try{loadEmergencyForm();}catch(e){}
+
+try{refreshSessionIfNeeded().then(()=>{renderCloudSettings();loadCurrentFamily();});}catch(e){}

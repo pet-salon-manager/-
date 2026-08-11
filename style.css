@@ -519,3 +519,18 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
 .cloud-message.ok{background:#f2fff6;color:#4b7c5d}
 .cloud-message.error{background:#fff3f4;color:#b65366}
 .cloud-note{color:var(--muted);font-size:12px;line-height:1.5}
+
+/* PawPal v13: Supabase Auth + secure family sharing */
+.account-box,.current-family-box{
+  margin:8px 0 12px;padding:14px;border-radius:16px;
+  background:linear-gradient(135deg,#f5f9ff,#fff);
+  border:1px solid #e3ebf5
+}
+.account-box small,.current-family-box small{display:block;color:var(--muted);margin-bottom:4px}
+.account-box b,.current-family-box b{font-size:16px}
+.danger-wide-btn{
+  width:100%;border:0;border-radius:16px;padding:12px 14px;
+  background:#fff0f2;color:#c75469;font-weight:900
+}
+.family-tabs{display:flex;gap:8px;margin:8px 0 12px}
+.family-tabs .chip{flex:1}
