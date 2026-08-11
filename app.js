@@ -209,11 +209,110 @@ function renderPetProfile(){
 function renderHealth(){
   const p=activePet();
   const arr=state.health.filter(x=>!p || x.petId===p.id);
-  const html=arr.length?arr.map(x=>`<div class="item"><div><b>${x.date} ・ ${x.condition}</b><div class="meta">${x.weight?`体重 ${x.weight}kg ・ `:""}${x.memo||"メモなし"}</div></div><span class="emoji">💗</span></div>`).join(""):'<div class="empty">健康記録はまだありません 🩺</div>';
-  $("#healthList").innerHTML=html; $("#recentHealth").innerHTML=arr.slice(0,2).map(x=>`<div class="item"><div><b>${x.condition}</b><div class="meta">${x.date}${x.weight?` ・ ${x.weight}kg`:""}</div></div><span>🌿</span></div>`).join("") || '<div class="empty">まだ記録がありません</div>';
+
+  const html=arr.length
+    ? arr.map(x=>`<div class="item">
+        <div>
+          <b>${x.date} ・ ${x.condition}</b>
+          <div class="meta">${x.weight?`体重 ${x.weight}kg ・ `:""}${x.memo||"メモなし"}</div>
+        </div>
+        <button class="health-delete-btn" onclick="deleteHealth(${x.id})">削除</button>
+      </div>`).join("")
+    : '<div class="empty">健康記録はまだありません 🩺</div>';
+
+  $("#healthList").innerHTML=html;
+
+  $("#recentHealth").innerHTML=arr.slice(0,2).map(x=>`
+    <div class="item">
+      <div><b>${x.condition}</b><div class="meta">${x.date}${x.weight?` ・ ${x.weight}kg`:""}</div></div>
+      <span>🌿</span>
+    </div>`).join("") || '<div class="empty">まだ記録がありません</div>';
+
+  renderWeightChart(arr);
 }
 
-function renderEvents(){
+function renderWeightChart(arr){
+  const canvas=$("#weightChart");
+  const empty=$("#chartEmpty");
+  const summary=$("#weightSummary");
+  if(!canvas) return;
+
+  const data=arr
+    .filter(x=>x.weight && !Number.isNaN(Number(x.weight)))
+    .map(x=>({date:x.date,weight:Number(x.weight),id:x.id}))
+    .sort((a,b)=>a.date.localeCompare(b.date) || a.id-b.id)
+    .slice(-12);
+
+  const ctx=canvas.getContext("2d");
+  const ratio=Math.max(1,window.devicePixelRatio||1);
+  const cssW=canvas.clientWidth || 420;
+  const cssH=220;
+  canvas.width=Math.round(cssW*ratio);
+  canvas.height=Math.round(cssH*ratio);
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  if(data.length<2){
+    empty.style.display="flex";
+    summary.textContent=data.length===1?`${data[0].weight}kg`:"記録なし";
+    return;
+  }
+  empty.style.display="none";
+
+  const weights=data.map(d=>d.weight);
+  const min=Math.min(...weights), max=Math.max(...weights);
+  const pad=Math.max(.2,(max-min)*.25);
+  const low=Math.max(0,min-pad), high=max+pad;
+
+  const left=38,right=12,top=16,bottom=34;
+  const plotW=cssW-left-right, plotH=cssH-top-bottom;
+  const x=i=>left+(plotW*(i/(data.length-1)));
+  const y=v=>top+plotH-(plotH*((v-low)/(high-low || 1)));
+
+  ctx.lineWidth=1;
+  ctx.strokeStyle="rgba(150,120,145,.18)";
+  ctx.fillStyle="#8c7988";
+  ctx.font="11px -apple-system, BlinkMacSystemFont, sans-serif";
+
+  for(let i=0;i<4;i++){
+    const gy=top+(plotH*i/3);
+    ctx.beginPath(); ctx.moveTo(left,gy); ctx.lineTo(cssW-right,gy); ctx.stroke();
+    const val=high-(high-low)*i/3;
+    ctx.fillText(val.toFixed(1),3,gy+4);
+  }
+
+  ctx.strokeStyle="rgba(220,90,145,.75)";
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  data.forEach((d,i)=>{
+    const px=x(i),py=y(d.weight);
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  });
+  ctx.stroke();
+
+  data.forEach((d,i)=>{
+    const px=x(i),py=y(d.weight);
+    ctx.beginPath();
+    ctx.fillStyle="#fff";
+    ctx.arc(px,py,5,0,Math.PI*2);
+    ctx.fill();
+    ctx.lineWidth=3;
+    ctx.strokeStyle="rgba(220,90,145,.9)";
+    ctx.stroke();
+
+    if(i===0 || i===data.length-1){
+      ctx.fillStyle="#7f6b7d";
+      ctx.font="10px -apple-system, BlinkMacSystemFont, sans-serif";
+      const label=d.date.slice(5).replace("-","/");
+      ctx.fillText(label,Math.max(2,Math.min(cssW-38,px-14)),cssH-10);
+    }
+  });
+
+  const first=data[0].weight,last=data[data.length-1].weight;
+  const diff=last-first;
+  const arrow=diff>0.05?"↗":diff<-0.05?"↘":"→";
+  summary.textContent=`${last.toFixed(1)}kg ${arrow} ${diff>=0?"+":""}${diff.toFixed(1)}kg`;
+}(){
   const today=new Date().toISOString().slice(0,10);
   const html=state.events.length?state.events.map(x=>`<div class="item"><div><b>${x.type} ${x.title}</b><div class="meta">${x.date}</div></div><button class="text-btn" onclick="deleteEvent(${x.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';
   $("#eventList").innerHTML=html;
@@ -221,6 +320,21 @@ function renderEvents(){
   $("#todayList").innerHTML=todays.length?todays.map(x=>`<div class="item"><div><b>${x.type} ${x.title}</b><div class="meta">今日</div></div><span>✨</span></div>`).join(""):'<div class="empty">今日はゆっくりできそうです ☕️</div>';
 }
 window.deleteEvent=(id)=>{state.events=state.events.filter(x=>x.id!==id);save();};
+
+window.deleteHealth=(id)=>{
+  state.health=state.health.filter(x=>x.id!==id);
+  save();
+};
+
+$("#clearHealthBtn").onclick=()=>{
+  const p=activePet();
+  if(!p){alert("ペットを登録してください🐾");return;}
+  const count=state.health.filter(x=>x.petId===p.id).length;
+  if(!count){alert("削除する健康記録がありません");return;}
+  if(!confirm(`${p.name}ちゃんの健康記録 ${count}件をすべて削除しますか？`)) return;
+  state.health=state.health.filter(x=>x.petId!==p.id);
+  save();
+};
 
 let placeFilter="すべて";
 function renderPlaces(){
@@ -254,3 +368,5 @@ function renderAll(){
 renderAll();
 
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+
+window.addEventListener("resize",()=>{ try{ renderHealth(); }catch(e){} });

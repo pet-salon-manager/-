@@ -1,6 +1,6 @@
 {
-  "name": "PawPal ペットスーパーアプリ v2",
-  "short_name": "PawPal",
+  "name": "PawPal ペットスーパーアプリ v3",
+  "short_name": "PawPal v3",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#fff7fb",

@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal</h1>
+        <h1>🐾 PawPal <span class="version-badge">v3</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -79,7 +79,24 @@
           <label>メモ<textarea id="healthMemo" placeholder="食欲、うんち、お水、気になったことなど"></textarea></label>
           <button id="saveHealthBtn" class="primary">💗 記録する</button>
         </div>
-        <div class="card section-card"><h3>記録一覧</h3><div id="healthList" class="list"></div></div>
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>📈 体重グラフ</h3>
+            <span id="weightSummary" class="summary-badge">記録なし</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="weightChart" width="420" height="220"></canvas>
+            <div id="chartEmpty" class="chart-empty">体重を2回以上記録するとグラフが表示されます 🐾</div>
+          </div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>記録一覧</h3>
+            <button id="clearHealthBtn" class="text-btn">全削除</button>
+          </div>
+          <div id="healthList" class="list"></div>
+        </div>
       </section>
 
       <section id="schedule" class="screen">
