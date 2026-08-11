@@ -837,3 +837,24 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   color:#8f6079;font-weight:900
 }
 @media(min-width:700px){.place-modal{align-items:center}.place-modal-card{border-radius:24px}}
+
+/* PawPal v18.4 nationwide OpenStreetMap places */
+.region-search-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  align-items:end;
+}
+.region-search-row input{margin:0}
+.place-distance{
+  margin-top:4px;
+  font-size:11px;
+  font-weight:800;
+  color:#b45f86;
+}
+.place-source{
+  margin-top:10px;
+  font-size:10px;
+  color:var(--muted);
+  text-align:center;
+}
