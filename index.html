@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v14</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v15</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -254,17 +254,10 @@
 
 
       <section id="assistant" class="screen">
-        <div class="screen-head"><h2>🤖 AIペットアシスタント</h2><p>ローカル分析とクラウドAIを切り替えて相談</p></div>
-
+        <div class="screen-head"><h2>💡 PawPal健康アドバイス</h2><p>追加課金なし・外部AI APIなしで、保存した記録を整理します</p></div>
         <div class="card section-card ai-card">
-          <div class="section-title"><h3>AIモード</h3><span id="aiModeBadge" class="summary-badge">ローカル</span></div>
-          <div class="ai-mode-tabs">
-            <button id="localAiTab" class="chip active">📱 ローカル分析</button>
-            <button id="cloudAiTab" class="chip">☁️ 生成AI</button>
-          </div>
-
+          <div class="section-title"><h3>相談する</h3><span class="summary-badge">無料・端末内</span></div>
           <label>相談するペット<select id="assistantPet"></select></label>
-
           <div class="ai-suggestions">
             <button class="chip ai-chip" data-aiq="summary">今日の様子をまとめて</button>
             <button class="chip ai-chip" data-aiq="weight">最近の体重はどう？</button>
@@ -272,24 +265,22 @@
             <button class="chip ai-chip" data-aiq="schedule">次の予定は？</button>
             <button class="chip ai-chip" data-aiq="care">気をつけることは？</button>
           </div>
-
-          <label>質問
-            <textarea id="assistantQuestion" placeholder="例：最近の体重変化と食事の様子を教えて"></textarea>
-          </label>
-          <button id="askAssistantBtn" class="primary">✨ AIに相談する</button>
-          <div id="cloudAiStatus" class="cloud-message">クラウドAIを使うには、SupabaseへログインしてEdge Functionを設定します。</div>
+          <label>相談内容<textarea id="assistantQuestion" placeholder="例：最近ごはんを残すことが増えました"></textarea></label>
+          <button id="askAssistantBtn" class="primary">💡 アドバイスを見る</button>
+          <div class="cloud-message ok">OpenAI APIは使いません。PawPalに保存した記録だけを、この端末内で整理します。</div>
         </div>
-
         <div class="card section-card">
-          <div class="section-title"><h3>アシスタントの回答</h3><button id="clearAssistantBtn" class="text-btn">クリア</button></div>
-          <div id="assistantAnswer" class="ai-answer">
-            <div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>
-          </div>
+          <div class="section-title"><h3>アドバイス</h3><button id="clearAssistantBtn" class="text-btn">クリア</button></div>
+          <div id="assistantAnswer" class="ai-answer"><div class="empty">質問を選ぶか入力してください 🐾</div></div>
         </div>
-
         <div class="card section-card">
-          <h3>自動チェック</h3>
+          <div class="section-title"><h3>自動チェック</h3><span class="summary-badge">記録から確認</span></div>
           <div id="assistantInsights" class="ai-insights"></div>
+        </div>
+        <div class="card section-card">
+          <h3>🚑 すぐ病院へ相談したいサイン</h3>
+          <div class="safety-grid"><div>呼吸が苦しそう</div><div>意識がもうろう</div><div>けいれん</div><div>大量出血</div><div>誤飲・中毒の疑い</div><div>急激なぐったり</div></div>
+          <p class="cloud-note">この機能は診断ではありません。急な悪化や強い症状がある場合は、記録結果にかかわらず動物病院へ相談してください。</p>
         </div>
       </section>
 

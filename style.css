@@ -547,3 +547,6 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   padding:16px;border-radius:18px;background:linear-gradient(135deg,#f5f9ff,#fff8fc);
   border:1px solid #dfe8f6;line-height:1.75;white-space:pre-wrap
 }
+
+/* PawPal v15: free local advisor */
+.safety-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}.safety-grid div{padding:10px 12px;border-radius:14px;background:#fff3f5;color:#a84f63;font-size:12px;font-weight:800}

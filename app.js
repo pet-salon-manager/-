@@ -1018,102 +1018,9 @@ $("#toggleEmergencyViewBtn").onclick=()=>{const card=document.querySelector(".em
 
 
 
-let assistantMode="local";
-
-function setAssistantMode(mode){
-  assistantMode=mode;
-  const cloud=mode==="cloud";
-  $("#localAiTab").classList.toggle("active",!cloud);
-  $("#cloudAiTab").classList.toggle("active",cloud);
-  $("#aiModeBadge").textContent=cloud?"生成AI":"ローカル";
-  $("#cloudAiStatus").className="cloud-message";
-  if(cloud){
-    const s=getCloudSettings(),session=getAuthSession();
-    if(!s.url||!s.anonKey)$("#cloudAiStatus").textContent="Supabase接続設定が必要です。";
-    else if(!session?.access_token)$("#cloudAiStatus").textContent="クラウドAIを使うにはログインしてください。";
-    else $("#cloudAiStatus").textContent="生成AIモード：Supabase Edge Function経由で安全に送信します。";
-  }else{
-    $("#cloudAiStatus").textContent="ローカル分析は外部APIを使わず、この端末内の記録だけで動きます。";
-  }
-}
-
-$("#localAiTab").onclick=()=>setAssistantMode("local");
-$("#cloudAiTab").onclick=()=>setAssistantMode("cloud");
-
-function buildCloudPetContext(petId){
-  const p=state.pets.find(x=>x.id===petId);
-  if(!p)return null;
-  const health=state.health.filter(x=>x.petId===petId).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  const meals=(state.meals||[]).filter(x=>x.petId===petId).sort((a,b)=>(b.date+(b.time||"")).localeCompare(a.date+(a.time||""))).slice(0,12);
-  const life=(state.lifeRecords||[]).filter(x=>x.petId===petId).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
-  const events=state.events.filter(x=>(!x.petId||x.petId===petId)&&!x.done).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||""))).slice(0,10);
-  const food=(state.foodProfiles||[]).find(x=>x.petId===petId)||null;
-  const emergency=(state.emergencyProfiles||[]).find(x=>x.petId===petId)||null;
-  return {
-    pet:{name:p.name,type:p.type,breed:p.breed||"",birthday:p.birthday||"",sex:p.sex||"",memo:p.memo||""},
-    health:health.map(x=>({date:x.date,weight:x.weight||"",condition:x.condition||"",memo:x.memo||""})),
-    meals:meals.map(x=>({date:x.date,time:x.time||"",type:x.type||"",amount:x.amount||0,appetite:x.appetite||"",memo:x.memo||""})),
-    life:life.map(x=>({date:x.date,walkMinutes:x.walkMinutes||0,walkDistance:x.walkDistance||0,water:x.water||0,sleep:x.sleep||0,pee:x.pee||0,poop:x.poop||"",mood:x.mood||"",memo:x.memo||""})),
-    events:events.map(x=>({date:x.date,time:x.time||"",type:x.type||"",title:x.title||"",memo:x.memo||""})),
-    food:food?{name:food.name,maker:food.maker||"",dailyTarget:food.dailyTarget||0,stock:food.stock||0,buyDate:food.buyDate||"",note:food.note||""}:null,
-    emergency:emergency?{allergy:emergency.allergy||"",condition:emergency.condition||"",medicine:emergency.medicine||"",hospital:emergency.hospital||"",note:emergency.note||""}:null
-  };
-}
-
-async function callCloudAI(question){
-  await refreshSessionIfNeeded();
-  const s=getCloudSettings(),session=getAuthSession();
-  if(!s.url||!s.anonKey)throw new Error("Supabase接続設定が必要です");
-  if(!session?.access_token)throw new Error("ログインしてください");
-
-  const petId=currentAssistantPetId();
-  const context=buildCloudPetContext(petId);
-  if(!context)throw new Error("相談するペットを選んでください");
-
-  const res=await fetch(`${normalizeSupabaseUrl(s.url)}/functions/v1/pawpal-ai`,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "apikey":s.anonKey,
-      "Authorization":`Bearer ${session.access_token}`
-    },
-    body:JSON.stringify({question,context})
-  });
-
-  const txt=await res.text();
-  let data=null;
-  try{data=txt?JSON.parse(txt):null}catch{data={error:txt}}
-  if(!res.ok)throw new Error(data?.error||data?.message||`AIエラー ${res.status}`);
-  if(!data?.answer)throw new Error("AIの回答を取得できませんでした");
-  return data.answer;
-}
-
-async function askAssistant(){
-  const q=$("#assistantQuestion").value.trim()||"今日の様子をまとめて";
-  if(assistantMode==="local"){
-    answerAssistant(q);
-    return;
-  }
-  const btn=$("#askAssistantBtn");
-  btn.disabled=true;btn.textContent="🤖 考えています…";
-  $("#assistantAnswer").innerHTML='<div class="ai-thinking">PawPalの記録を整理してAIに送っています…</div>';
-  try{
-    const answer=await callCloudAI(q);
-    $("#assistantAnswer").innerHTML=`<div class="ai-cloud-answer">${escapeHtml(answer)}</div><div class="ai-disclaimer">AIの回答は参考情報です。診断や治療判断ではありません。体調に不安がある場合は動物病院へ相談してください。</div>`;
-    $("#cloudAiStatus").className="cloud-message ok";
-    $("#cloudAiStatus").textContent="生成AIから回答を受け取りました ☁️🤖";
-  }catch(e){
-    console.error(e);
-    $("#assistantAnswer").innerHTML=`<div class="cloud-message error">AIに接続できませんでした：${escapeHtml(e.message)}</div>`;
-    $("#cloudAiStatus").className="cloud-message error";
-    $("#cloudAiStatus").textContent="Edge FunctionとAI API設定を確認してください。";
-  }finally{
-    btn.disabled=false;btn.textContent="✨ AIに相談する";
-  }
-}
-
-function escapeHtml(v){
-  return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+function askAssistant(){
+  const q=$("#assistantQuestion").value.trim()||"summary";
+  answerAssistant(q);
 }
 
 function currentAssistantPetId(){
@@ -1242,7 +1149,7 @@ function renderAssistantInsights(){
   box.innerHTML=arr.map(i=>`<div class="ai-insight ${i.type}">${i.text}</div>`).join("");
 }
 $("#assistantPet").onchange=()=>{renderAssistantInsights();$("#assistantAnswer").innerHTML='<div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>';};
-$$(".ai-chip").forEach(b=>b.onclick=()=>{$("#assistantQuestion").value=b.textContent;if(assistantMode==="cloud")askAssistant();else answerAssistant(b.dataset.aiq);});
+$$(".ai-chip").forEach(b=>b.onclick=()=>{$("#assistantQuestion").value=b.textContent;answerAssistant(b.dataset.aiq);});
 $("#askAssistantBtn").onclick=askAssistant;
 $("#clearAssistantBtn").onclick=()=>{$("#assistantQuestion").value="";$("#assistantAnswer").innerHTML='<div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>';};
 
@@ -1502,4 +1409,4 @@ try{loadEmergencyForm();}catch(e){}
 
 try{refreshSessionIfNeeded().then(()=>{renderCloudSettings();loadCurrentFamily();});}catch(e){}
 
-try{setAssistantMode("local");}catch(e){}
+

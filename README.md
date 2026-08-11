@@ -1,18 +1,11 @@
-# PawPal v14
+# PawPal v15
 
-## v14で追加
-- 本物の生成AIチャット
-- ローカル分析 / 生成AIモード切替
-- Supabase Edge Function経由
-- ログイン済みユーザーのみAI利用
-- OpenAI APIキーをブラウザ/GitHubに置かない構成
-- 健康・体重・食事・生活・予定・緊急情報をAIへコンパクトに送信
-- AI回答の医療注意表示
+OpenAI APIなどの有料生成AI APIは使いません。
 
-## 追加ファイル
-- AI_SETUP.md
-- supabase/functions/pawpal-ai/index.ts
-- supabase/config.toml
+## 無料の健康アドバイス
+PawPalに保存した体重・食事・生活・予定などの記録を端末内で整理します。
 
-## 重要
-OPENAI_API_KEY と OPENAI_MODEL はSupabase Edge FunctionのSecretに保存します。
+## Supabase
+飼い主ログイン、家族スペース、クラウドバックアップ、クラウド復元はそのまま利用できます。
+
+OpenAI APIキーやEdge Functionはv15の健康アドバイスには不要です。
