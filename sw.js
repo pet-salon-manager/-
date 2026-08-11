@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v16-products-20260812';
+const CACHE='pawpal-v17-barcode-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

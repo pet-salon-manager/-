@@ -785,6 +785,144 @@ $("#janSearchBtn").onclick=()=>{
   }
 };
 
+
+let barcodeStream=null;
+let barcodeDetector=null;
+let barcodeScanTimer=null;
+let barcodeScanning=false;
+let lastBarcodeValue="";
+
+function setBarcodeStatus(message,type=""){
+  const el=$("#barcodeStatus");
+  if(!el)return;
+  el.textContent=message;
+  el.className=`barcode-status ${type}`.trim();
+}
+
+function stopBarcodeCamera(){
+  barcodeScanning=false;
+  if(barcodeScanTimer){
+    clearTimeout(barcodeScanTimer);
+    barcodeScanTimer=null;
+  }
+  if(barcodeStream){
+    barcodeStream.getTracks().forEach(t=>t.stop());
+    barcodeStream=null;
+  }
+  const video=$("#barcodeVideo");
+  if(video){
+    video.pause();
+    video.srcObject=null;
+  }
+  const modal=$("#barcodeScannerModal");
+  if(modal){
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden","true");
+  }
+}
+
+function useScannedJan(rawValue){
+  const jan=normalizeJan(rawValue);
+  if(jan.length<8)return false;
+  lastBarcodeValue=jan;
+  $("#janInput").value=jan;
+
+  const product=state.products.find(p=>p.jan===jan);
+  if(product){
+    $("#janResult").innerHTML=`<b>✅ ${escapeHtml(product.name)}</b><br>${escapeHtml(product.maker||"メーカー未設定")} ・ ${escapeHtml(product.type||"その他")}<br><small>JAN: ${escapeHtml(product.jan)}</small><br><button class="product-action" onclick="editProduct(${product.id})">商品を開く・編集</button>`;
+    setBarcodeStatus(`読み取り成功：${jan}`,"success");
+  }else{
+    $("#janResult").innerHTML=`<b>未登録の商品です</b><br>JAN: ${escapeHtml(jan)}<br><small>商品登録フォームにJANコードを自動入力しました。</small>`;
+    $("#productJan").value=jan;
+    setBarcodeStatus(`読み取り成功：${jan}`,"success");
+  }
+
+  if(navigator.vibrate)navigator.vibrate(80);
+  setTimeout(()=>{
+    stopBarcodeCamera();
+    if(!product){
+      setTimeout(()=>$("#productName")?.focus(),150);
+    }
+  },650);
+  return true;
+}
+
+async function scanBarcodeFrame(){
+  if(!barcodeScanning||!barcodeDetector)return;
+  const video=$("#barcodeVideo");
+  try{
+    if(video.readyState>=2){
+      const codes=await barcodeDetector.detect(video);
+      if(codes&&codes.length){
+        const preferred=codes.find(c=>["ean_13","ean_8","upc_a","upc_e"].includes(c.format))||codes[0];
+        const value=preferred?.rawValue||"";
+        if(useScannedJan(value))return;
+      }
+    }
+  }catch(err){
+    console.warn("barcode detect",err);
+  }
+  barcodeScanTimer=setTimeout(scanBarcodeFrame,180);
+}
+
+async function openBarcodeCamera(){
+  const modal=$("#barcodeScannerModal");
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden","false");
+  setBarcodeStatus("カメラを準備しています…");
+
+  if(!navigator.mediaDevices?.getUserMedia){
+    setBarcodeStatus("このブラウザではカメラを利用できません。JANコードを手入力してください。","error");
+    return;
+  }
+
+  if(!("BarcodeDetector" in window)){
+    setBarcodeStatus("このiPhone / Safariでは自動バーコード認識に対応していません。JANコードを手入力してください。","error");
+    return;
+  }
+
+  try{
+    const supported=await BarcodeDetector.getSupportedFormats();
+    const wanted=["ean_13","ean_8","upc_a","upc_e"].filter(x=>supported.includes(x));
+    barcodeDetector=new BarcodeDetector({formats:wanted.length?wanted:["ean_13"]});
+
+    barcodeStream=await navigator.mediaDevices.getUserMedia({
+      video:{
+        facingMode:{ideal:"environment"},
+        width:{ideal:1280},
+        height:{ideal:720}
+      },
+      audio:false
+    });
+
+    const video=$("#barcodeVideo");
+    video.srcObject=barcodeStream;
+    await video.play();
+
+    barcodeScanning=true;
+    setBarcodeStatus("バーコードを枠の中央に合わせてください");
+    scanBarcodeFrame();
+  }catch(err){
+    console.error(err);
+    let msg="カメラを開始できませんでした。";
+    if(err?.name==="NotAllowedError")msg="カメラの使用が許可されていません。Safariのカメラ許可をONにしてください。";
+    else if(err?.name==="NotFoundError")msg="利用できるカメラが見つかりませんでした。";
+    else if(err?.name==="NotReadableError")msg="カメラを他のアプリが使用している可能性があります。";
+    setBarcodeStatus(msg,"error");
+  }
+}
+
+$("#openBarcodeCameraBtn").onclick=openBarcodeCamera;
+$("#closeBarcodeCameraBtn").onclick=stopBarcodeCamera;
+
+$("#barcodeScannerModal").addEventListener("click",e=>{
+  if(e.target.id==="barcodeScannerModal")stopBarcodeCamera();
+});
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden&&barcodeStream)stopBarcodeCamera();
+});
+
 $("#themeBtn").onclick=()=>document.body.classList.toggle("alt");
 
 $("#notificationPermissionBtn").onclick=requestNotificationPermission;
