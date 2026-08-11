@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.2</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -584,7 +584,6 @@
     </form>
   </dialog>
 
-  <script src="app.js"></script>
 
   <div id="barcodeScannerModal" class="barcode-modal" aria-hidden="true">
     <div class="barcode-modal-card">
@@ -610,7 +609,7 @@
         <input id="barcodePhotoInput" type="file" accept="image/*" capture="environment" hidden>
       </label>
 
-      <button id="closeBarcodeCameraBottomBtn" class="barcode-bottom-close">← 商品画面に戻る</button>
+      <button id="closeBarcodeCameraBottomBtn" type="button" class="barcode-bottom-close">← 商品画面に戻る</button>
 
       <div class="barcode-help">
         <b>うまく読めないとき</b><br>
@@ -622,5 +621,6 @@
     </div>
   </div>
 
+  <script src="app.js"></script>
 </body>
 </html>

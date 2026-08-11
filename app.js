@@ -1157,24 +1157,30 @@ if(bottomCloseBtn){
   bottomCloseBtn.addEventListener("touchend",closeBarcodeScannerEvent,{passive:false});
 }
 
-$("#barcodePhotoInput").onchange=e=>{
-  const file=e.target.files?.[0];
-  if(file)decodePhotoFile(file);
-  e.target.value="";
-};
+const barcodePhotoInput=$("#barcodePhotoInput");
+if(barcodePhotoInput){
+  barcodePhotoInput.onchange=e=>{
+    const file=e.target.files?.[0];
+    if(file)decodePhotoFile(file);
+    e.target.value="";
+  };
+}
 
-$("#barcodeScannerModal").addEventListener("click",e=>{
-  if(e.target.id==="barcodeScannerModal"){
-    e.preventDefault();
-    stopBarcodeCamera();
-  }
-});
-$("#barcodeScannerModal").addEventListener("touchend",e=>{
-  if(e.target.id==="barcodeScannerModal"){
-    e.preventDefault();
-    stopBarcodeCamera();
-  }
-},{passive:false});
+const barcodeModal=$("#barcodeScannerModal");
+if(barcodeModal){
+  barcodeModal.addEventListener("click",e=>{
+    if(e.target===barcodeModal){
+      e.preventDefault();
+      stopBarcodeCamera();
+    }
+  });
+  barcodeModal.addEventListener("touchend",e=>{
+    if(e.target===barcodeModal){
+      e.preventDefault();
+      stopBarcodeCamera();
+    }
+  },{passive:false});
+}
 
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden&&barcodeStream)stopBarcodeCamera();
