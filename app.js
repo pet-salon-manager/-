@@ -151,9 +151,9 @@ $("#saveHealthBtn").onclick=()=>{
 $("#saveEventBtn").onclick=()=>{
   const title=$("#eventTitle").value.trim(),date=$("#eventDate").value;
   if(!title||!date){alert("タイトルと日付を入力してください🌷");return;}
-  state.events.push({id:Date.now(),petId:$("#eventPet").value?Number($("#eventPet").value):null,type:$("#eventType").value,title,date,time:$("#eventTime").value||"",repeat:$("#eventRepeat").value||"none",memo:$("#eventMemo").value.trim(),done:false});
+  state.events.push({id:Date.now(),petId:$("#eventPet").value?Number($("#eventPet").value):null,type:$("#eventType").value,title,date,time:$("#eventTime").value||"",repeat:$("#eventRepeat").value||"none",memo:$("#eventMemo").value.trim(),reminder:Number($("#eventReminder").value),done:false});
   state.events.sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
-  $("#eventTitle").value="";$("#eventTime").value="";$("#eventMemo").value="";save();
+  $("#eventTitle").value="";$("#eventTime").value="";$("#eventMemo").value="";$("#eventReminder").value="3";save();
 };
 
 function renderPets(){
@@ -325,7 +325,73 @@ function renderCalendar(){
 }
 function renderEventPetOptions(){const s=$("#eventPet");if(!s)return;const cur=s.value;s.innerHTML='<option value="">共通</option>'+state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("");if([...s.options].some(o=>o.value===cur))s.value=cur;else if(activePet())s.value=activePet().id}
 function renderMedList(){const today=new Date().toISOString().slice(0,10);let a=state.events.filter(e=>e.type?.includes("お薬")||e.type?.includes("ワクチン"));if(futureOnly)a=a.filter(e=>e.date>=today);$("#medList").innerHTML=a.length?a.map(e=>`<div class="med-card"><div class="med-card-top"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}</div>${e.memo?`<div class="meta">📝 ${e.memo}</div>`:""}</div><button class="done-btn ${e.done?"done":""}" onclick="toggleEventDone(${e.id})">${e.done?"済み":"完了"}</button></div></div>`).join(""):'<div class="empty">薬・ワクチンの予定はまだありません 💊</div>'}
-function renderEvents(){renderEventPetOptions();renderCalendar();renderMedList();let a=[...state.events];if(selectedCalendarDate)a=a.filter(e=>e.date===selectedCalendarDate);$("#eventList").innerHTML=a.length?a.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}${e.done?" ・ ✅済み":""}</div></div><button class="text-btn" onclick="deleteEvent(${e.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';const t=new Date().toISOString().slice(0,10),todays=state.events.filter(e=>e.date===t);$("#todayList").innerHTML=todays.length?todays.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.time||"今日"} ・ ${evPet(e)}</div></div><span>${e.done?"✅":"✨"}</span></div>`).join(""):'<div class="empty">今日はゆっくりできそうです ☕️</div>'}
+
+function daysUntil(dateStr){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const target=new Date(dateStr+"T00:00:00");
+  return Math.round((target-now)/86400000);
+}
+function renderReminderCenter(){
+  const box=$("#reminderList"), status=$("#notificationStatus");
+  if(!box || !status) return;
+
+  let permission="unsupported";
+  if("Notification" in window) permission=Notification.permission;
+  status.textContent = permission==="granted"
+    ? "ブラウザ通知：許可済み ✅"
+    : permission==="denied"
+      ? "ブラウザ通知：拒否されています"
+      : permission==="default"
+        ? "ブラウザ通知：未許可"
+        : "この環境ではブラウザ通知に対応していません";
+
+  const due=state.events
+    .filter(e=>!e.done && Number(e.reminder ?? 3) >= 0)
+    .map(e=>({...e,days:daysUntil(e.date),rem:Number(e.reminder ?? 3)}))
+    .filter(e=>e.days>=0 && e.days<=e.rem)
+    .sort((a,b)=>a.days-b.days);
+
+  box.innerHTML=due.length?due.map(e=>{
+    const when=e.days===0?"今日":`${e.days}日後`;
+    return `<div class="reminder-card ${e.days===0?"urgent":""}">
+      <div><span class="reminder-pill">${when}</span></div>
+      <b>${evEmoji(e.type)} ${e.title}</b>
+      <div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}</div>
+      ${e.memo?`<div class="meta">📝 ${e.memo}</div>`:""}
+    </div>`;
+  }).join(""):'<div class="empty">今のところ通知する予定はありません 🌷</div>';
+
+  if(permission==="granted"){
+    due.forEach(e=>{
+      const key=`pawpalNotified:${e.id}:${e.date}:${e.days}`;
+      if(!localStorage.getItem(key)){
+        try{
+          new Notification(`PawPal ${e.days===0?"今日の予定":`${e.days}日後の予定`}`,{
+            body:`${e.title} ・ ${evPet(e)}`,
+            icon:""
+          });
+          localStorage.setItem(key,"1");
+        }catch(_){}
+      }
+    });
+  }
+}
+
+async function requestNotificationPermission(){
+  if(!("Notification" in window)){
+    alert("このブラウザでは通知機能に対応していません。アプリ内リマインダーは使えます。");
+    return;
+  }
+  try{
+    const p=await Notification.requestPermission();
+    renderReminderCenter();
+    if(p==="granted") alert("通知を許可しました 🔔");
+  }catch{
+    alert("通知許可を開けませんでした。アプリ内リマインダーは使えます。");
+  }
+}
+
+function renderEvents(){renderEventPetOptions();renderCalendar();renderMedList();renderReminderCenter();let a=[...state.events];if(selectedCalendarDate)a=a.filter(e=>e.date===selectedCalendarDate);$("#eventList").innerHTML=a.length?a.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}${e.done?" ・ ✅済み":""}</div></div><button class="text-btn" onclick="deleteEvent(${e.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';const t=new Date().toISOString().slice(0,10),todays=state.events.filter(e=>e.date===t);$("#todayList").innerHTML=todays.length?todays.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.time||"今日"} ・ ${evPet(e)}</div></div><span>${e.done?"✅":"✨"}</span></div>`).join(""):'<div class="empty">今日はゆっくりできそうです ☕️</div>'}
 window.deleteEvent=id=>{state.events=state.events.filter(e=>e.id!==id);save()};window.toggleEventDone=id=>{const e=state.events.find(x=>x.id===id);if(e){e.done=!e.done;save()}};
 $("#prevMonthBtn").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);selectedCalendarDate="";renderEvents()};
 $("#nextMonthBtn").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);selectedCalendarDate="";renderEvents()};
@@ -369,6 +435,8 @@ $("#janSearchBtn").onclick=()=>{
 };
 
 $("#themeBtn").onclick=()=>document.body.classList.toggle("alt");
+
+$("#notificationPermissionBtn").onclick=requestNotificationPermission;
 
 function renderAll(){
   const p=activePet();

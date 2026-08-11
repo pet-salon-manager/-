@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v4</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v5</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -114,9 +114,27 @@
   <label>日付<input id="eventDate" type="date"></label>
   <label>時間<input id="eventTime" type="time"></label>
   <label>繰り返し<select id="eventRepeat"><option value="none">なし</option><option value="monthly">毎月</option><option value="yearly">毎年</option></select></label>
+  <label>リマインダー
+    <select id="eventReminder">
+      <option value="0">当日</option>
+      <option value="1">1日前</option>
+      <option value="3" selected>3日前</option>
+      <option value="7">7日前</option>
+      <option value="-1">通知しない</option>
+    </select>
+  </label>
   <label>メモ<textarea id="eventMemo" placeholder="薬の量・病院名・注意点など"></textarea></label>
   <button id="saveEventBtn" class="primary">🗓️ 予定を保存</button>
 </div>
+<div class="card section-card reminder-center">
+  <div class="section-title">
+    <h3>🔔 リマインダー</h3>
+    <button id="notificationPermissionBtn" class="soft-btn">通知を許可</button>
+  </div>
+  <div class="reminder-status" id="notificationStatus">通知設定を確認中…</div>
+  <div id="reminderList" class="list"></div>
+</div>
+
 <div class="card section-card">
   <div class="section-title"><h3>💊 薬・ワクチン管理</h3><button id="showDueOnlyBtn" class="soft-btn">今後だけ</button></div>
   <div id="medList" class="list"></div>
