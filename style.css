@@ -534,3 +534,16 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
 }
 .family-tabs{display:flex;gap:8px;margin:8px 0 12px}
 .family-tabs .chip{flex:1}
+
+/* PawPal v14: cloud generative AI */
+.ai-mode-tabs{display:flex;gap:8px;margin:8px 0 14px}
+.ai-mode-tabs .chip{flex:1}
+.ai-mode-tabs .chip.active{background:#eadfff;color:#5f4eb2;border-color:#d7c8ff}
+.ai-thinking{
+  padding:16px;border-radius:18px;background:linear-gradient(135deg,#f7f3ff,#fff8fc);
+  border:1px solid #eadff4;color:#6b5f77
+}
+.ai-cloud-answer{
+  padding:16px;border-radius:18px;background:linear-gradient(135deg,#f5f9ff,#fff8fc);
+  border:1px solid #dfe8f6;line-height:1.75;white-space:pre-wrap
+}

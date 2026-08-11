@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v13.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v14</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -252,12 +252,18 @@
       </section>
 
 
-<section id="assistant" class="screen">
-        <div class="screen-head"><h2>🤖 AIペットアシスタント</h2><p>記録を読み取って、今の様子をわかりやすく整理</p></div>
+
+      <section id="assistant" class="screen">
+        <div class="screen-head"><h2>🤖 AIペットアシスタント</h2><p>ローカル分析とクラウドAIを切り替えて相談</p></div>
 
         <div class="card section-card ai-card">
-          <div class="section-title"><h3>相談するペット</h3><span class="summary-badge">ローカル分析</span></div>
-          <label>ペット<select id="assistantPet"></select></label>
+          <div class="section-title"><h3>AIモード</h3><span id="aiModeBadge" class="summary-badge">ローカル</span></div>
+          <div class="ai-mode-tabs">
+            <button id="localAiTab" class="chip active">📱 ローカル分析</button>
+            <button id="cloudAiTab" class="chip">☁️ 生成AI</button>
+          </div>
+
+          <label>相談するペット<select id="assistantPet"></select></label>
 
           <div class="ai-suggestions">
             <button class="chip ai-chip" data-aiq="summary">今日の様子をまとめて</button>
@@ -270,7 +276,8 @@
           <label>質問
             <textarea id="assistantQuestion" placeholder="例：最近の体重変化と食事の様子を教えて"></textarea>
           </label>
-          <button id="askAssistantBtn" class="primary">✨ まとめてもらう</button>
+          <button id="askAssistantBtn" class="primary">✨ AIに相談する</button>
+          <div id="cloudAiStatus" class="cloud-message">クラウドAIを使うには、SupabaseへログインしてEdge Functionを設定します。</div>
         </div>
 
         <div class="card section-card">
@@ -285,6 +292,7 @@
           <div id="assistantInsights" class="ai-insights"></div>
         </div>
       </section>
+
 
 <section id="emergency" class="screen">
         <div class="screen-head emergency-head"><h2>🆘 緊急モード</h2><p>病院や預け先で、必要な情報をすぐ確認</p></div>
