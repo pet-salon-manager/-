@@ -312,7 +312,9 @@ function renderWeightChart(arr){
   const diff=last-first;
   const arrow=diff>0.05?"↗":diff<-0.05?"↘":"→";
   summary.textContent=`${last.toFixed(1)}kg ${arrow} ${diff>=0?"+":""}${diff.toFixed(1)}kg`;
-}(){
+}
+
+function renderEvents(){
   const today=new Date().toISOString().slice(0,10);
   const html=state.events.length?state.events.map(x=>`<div class="item"><div><b>${x.type} ${x.title}</b><div class="meta">${x.date}</div></div><button class="text-btn" onclick="deleteEvent(${x.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';
   $("#eventList").innerHTML=html;
