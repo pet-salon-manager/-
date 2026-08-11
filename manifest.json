@@ -1,0 +1,9 @@
+{
+  "name": "PawPal ペットスーパーアプリ",
+  "short_name": "PawPal",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff7fb",
+  "theme_color": "#ff7fb7",
+  "icons": []
+}

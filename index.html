@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#fff7fb" />
+  <title>PawPal スーパーアプリ</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">PET SUPER APP</div>
+        <h1>🐾 PawPal</h1>
+      </div>
+      <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
+    </header>
+
+    <main>
+      <section id="home" class="screen active">
+        <div class="hero card">
+          <div>
+            <span class="pill">今日もいっしょに元気に</span>
+            <h2 id="helloPet">ペットを登録しよう 🐶</h2>
+            <p>健康・予定・おでかけ・商品をひとつに。</p>
+          </div>
+          <div class="hero-emoji">🐕‍🦺</div>
+        </div>
+
+        <div class="grid2">
+          <button class="quick card" data-go="pets"><span>🐾</span><b>ペット</b><small>プロフィール</small></button>
+          <button class="quick card" data-go="health"><span>🩺</span><b>健康</b><small>体重・メモ</small></button>
+          <button class="quick card" data-go="schedule"><span>📅</span><b>予定</b><small>薬・病院</small></button>
+          <button class="quick card" data-go="places"><span>🗺️</span><b>お店</b><small>病院・トリミング</small></button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>今日の予定</h3><button class="text-btn" data-go="schedule">すべて見る</button></div>
+          <div id="todayList" class="list"></div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>最近の健康記録</h3><button class="text-btn" data-go="health">記録する</button></div>
+          <div id="recentHealth" class="list"></div>
+        </div>
+      </section>
+
+      <section id="pets" class="screen">
+        <div class="screen-head"><h2>🐾 ペット</h2><p>大切な家族を登録・切り替え</p></div>
+        <div class="card section-card">
+          <div class="section-title"><h3>登録中のペット</h3><button id="addPetBtn" class="primary small">＋ 追加</button></div>
+          <div id="petCards" class="pet-cards"></div>
+        </div>
+      </section>
+
+      <section id="health" class="screen">
+        <div class="screen-head"><h2>🩺 健康</h2><p>体重や体調をかんたん記録</p></div>
+        <div class="card section-card">
+          <h3>今日の健康記録</h3>
+          <label>体重（kg）<input id="weightInput" type="number" step="0.1" placeholder="例：4.8"></label>
+          <label>体調
+            <select id="conditionInput">
+              <option>とても元気</option><option>元気</option><option>ふつう</option><option>少し気になる</option>
+            </select>
+          </label>
+          <label>メモ<textarea id="healthMemo" placeholder="食欲、うんち、お水、気になったことなど"></textarea></label>
+          <button id="saveHealthBtn" class="primary">💗 記録する</button>
+        </div>
+        <div class="card section-card"><h3>記録一覧</h3><div id="healthList" class="list"></div></div>
+      </section>
+
+      <section id="schedule" class="screen">
+        <div class="screen-head"><h2>📅 予定</h2><p>病院・薬・トリミングをまとめて管理</p></div>
+        <div class="card section-card">
+          <h3>予定を追加</h3>
+          <label>種類
+            <select id="eventType"><option>💊 お薬</option><option>🏥 病院</option><option>✂️ トリミング</option><option>💉 ワクチン</option><option>🎂 記念日</option><option>📌 その他</option></select>
+          </label>
+          <label>タイトル<input id="eventTitle" placeholder="例：フィラリア予防薬"></label>
+          <label>日付<input id="eventDate" type="date"></label>
+          <button id="saveEventBtn" class="primary">🗓️ 予定を保存</button>
+        </div>
+        <div class="card section-card"><h3>予定一覧</h3><div id="eventList" class="list"></div></div>
+      </section>
+
+      <section id="places" class="screen">
+        <div class="screen-head"><h2>🗺️ お店</h2><p>動物病院・トリミング・ホテルを探す</p></div>
+        <div class="searchbar"><input id="placeSearch" placeholder="店名・地域・種類で検索"><span>🔎</span></div>
+        <div class="chips">
+          <button class="chip active" data-filter="すべて">すべて</button>
+          <button class="chip" data-filter="病院">🏥 病院</button>
+          <button class="chip" data-filter="トリミング">✂️ トリミング</button>
+          <button class="chip" data-filter="ホテル">🏨 ホテル</button>
+        </div>
+        <div id="placeList" class="list"></div>
+      </section>
+
+      <section id="products" class="screen">
+        <div class="screen-head"><h2>🛍️ 商品</h2><p>JANコード・商品名から検索</p></div>
+        <div class="card section-card">
+          <label>JANコード<input id="janInput" inputmode="numeric" placeholder="例：4901234567890"></label>
+          <button id="janSearchBtn" class="primary">🔎 商品を探す</button>
+          <div id="janResult" class="result-box">JANコードを入力すると、登録済み商品を検索します。</div>
+        </div>
+        <div class="card section-card">
+          <h3>商品名から検索</h3>
+          <div class="searchbar inline"><input id="productSearch" placeholder="フード・おやつ・ケア用品など"><span>🔎</span></div>
+          <div id="productList" class="list"></div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-screen="home"><span>🏠</span><small>ホーム</small></button>
+      <button class="nav-btn" data-screen="pets"><span>🐾</span><small>ペット</small></button>
+      <button class="nav-btn" data-screen="schedule"><span>📅</span><small>予定</small></button>
+      <button class="nav-btn" data-screen="places"><span>🗺️</span><small>お店</small></button>
+      <button class="nav-btn" data-screen="products"><span>🛍️</span><small>商品</small></button>
+    </nav>
+  </div>
+
+  <dialog id="petDialog">
+    <form method="dialog" class="dialog-card" id="petForm">
+      <div class="dialog-head"><h3>🐾 ペットを登録</h3><button value="cancel" class="icon-btn">✕</button></div>
+      <label>名前<input id="petName" required placeholder="例：ココ"></label>
+      <label>種類<select id="petType"><option>🐶 犬</option><option>🐱 猫</option><option>🐰 うさぎ</option><option>🐹 小動物</option><option>🐦 鳥</option><option>🐾 その他</option></select></label>
+      <label>誕生日<input id="petBirthday" type="date"></label>
+      <label>犬種・猫種など<input id="petBreed" placeholder="例：トイプードル"></label>
+      <button id="savePetBtn" value="default" class="primary">💖 登録する</button>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
