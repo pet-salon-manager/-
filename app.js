@@ -142,6 +142,24 @@ $("#deletePetBtn").onclick=()=>{
   save();
 };
 
+
+$("#closePetDialogBtn").onclick=()=>{
+  try{
+    $("#petDialog").close();
+  }catch(e){
+    $("#petDialog").removeAttribute("open");
+  }
+  editingPetId=null;
+  pendingPhoto="";
+  try{$("#petForm").reset();}catch(e){}
+};
+
+$("#petDialog").addEventListener("click",(e)=>{
+  if(e.target === $("#petDialog")){
+    try{$("#petDialog").close();}catch(_){}
+  }
+});
+
 $("#saveHealthBtn").onclick=()=>{
   const p=activePet(); if(!p){ alert("先にペットを登録してください🐾"); go("pets"); return; }
   state.health.unshift({id:Date.now(),petId:p.id,date:new Date().toISOString().slice(0,10),weight:$("#weightInput").value,condition:$("#conditionInput").value,memo:$("#healthMemo").value.trim()});
