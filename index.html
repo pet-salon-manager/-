@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v15</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v16</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -457,19 +457,95 @@
         </div>
       </section>
 
-<section id="products" class="screen">
-        <div class="screen-head"><h2>🛍️ 商品</h2><p>JANコード・商品名から検索</p></div>
-        <div class="card section-card">
-          <label>JANコード<input id="janInput" inputmode="numeric" placeholder="例：4901234567890"></label>
-          <button id="janSearchBtn" class="primary">🔎 商品を探す</button>
-          <div id="janResult" class="result-box">JANコードを入力すると、登録済み商品を検索します。</div>
+
+      <section id="products" class="screen">
+        <div class="screen-head">
+          <h2>🛍️ 商品管理</h2>
+          <p>商品登録・JAN検索・お気に入り・購入履歴をまとめて管理</p>
         </div>
+
         <div class="card section-card">
-          <h3>商品名から検索</h3>
-          <div class="searchbar inline"><input id="productSearch" placeholder="フード・おやつ・ケア用品など"><span>🔎</span></div>
-          <div id="productList" class="list"></div>
+          <div class="section-title">
+            <h3>🔎 JANコード検索</h3>
+            <span id="productCountBadge" class="summary-badge">0商品</span>
+          </div>
+          <label>JANコード
+            <input id="janInput" inputmode="numeric" maxlength="14" placeholder="例：4901234567890">
+          </label>
+          <button id="janSearchBtn" class="primary">🔎 JANコードで探す</button>
+          <div id="janResult" class="result-box">JANコードを入力すると登録済み商品を検索します。</div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3 id="productFormTitle">＋ 商品を登録</h3>
+            <button id="cancelProductEditBtn" class="text-btn" style="display:none">編集をやめる</button>
+          </div>
+
+          <label>JANコード
+            <input id="productJan" inputmode="numeric" maxlength="14" placeholder="8〜14桁">
+          </label>
+          <label>商品名
+            <input id="productName" placeholder="例：チキン＆ライス">
+          </label>
+          <label>メーカー
+            <input id="productMaker" placeholder="例：○○ペットフーズ">
+          </label>
+          <label>カテゴリ
+            <select id="productType">
+              <option>フード</option>
+              <option>おやつ</option>
+              <option>ケア用品</option>
+              <option>おもちゃ</option>
+              <option>トイレ用品</option>
+              <option>散歩用品</option>
+              <option>ベッド・ハウス</option>
+              <option>薬・サプリ</option>
+              <option>その他</option>
+            </select>
+          </label>
+          <label>メーカー商品ページURL
+            <input id="productUrl" type="url" placeholder="https://...">
+          </label>
+          <label>メモ
+            <textarea id="productMemo" placeholder="サイズ、味、使い方、購入先など"></textarea>
+          </label>
+          <label class="favorite-check">
+            <input id="productFavorite" type="checkbox">
+            ❤️ お気に入りに登録
+          </label>
+
+          <button id="saveProductBtn" class="primary">💾 商品を保存</button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>登録商品</h3>
+            <button id="favoriteOnlyBtn" class="soft-btn">❤️ お気に入りだけ</button>
+          </div>
+          <div class="searchbar inline">
+            <input id="productSearch" placeholder="商品名・メーカー・JAN・カテゴリ">
+            <span>🔎</span>
+          </div>
+          <label>並び順
+            <select id="productSort">
+              <option value="new">新しく登録した順</option>
+              <option value="name">商品名順</option>
+              <option value="purchase">最近購入した順</option>
+            </select>
+          </label>
+          <div id="productList" class="product-list"></div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>🧾 購入履歴</h3>
+            <span id="purchaseCountBadge" class="summary-badge">0件</span>
+          </div>
+          <div id="purchaseHistoryList" class="list"></div>
         </div>
       </section>
+
     </main>
 
     <nav class="bottom-nav">

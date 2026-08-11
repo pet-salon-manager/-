@@ -2,6 +2,8 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"activePet":null,"health":[],"events":[]}');
+state.products ||= [];
+state.purchaseHistory ||= [];
 state.emergencyProfiles ||= [];
 state.lifeRecords ||= [];
 state.foodProfiles ||= []; state.meals ||= [];
@@ -119,13 +121,25 @@ const places = [
   {name:"Paw Spa", type:"トリミング", area:"長野県", emoji:"🫧", note:"シャンプー・カット"}
 ];
 
-const products = [
-  {jan:"4901234567890", name:"やさしいチキンフード", maker:"Paw Foods", type:"フード"},
-  {jan:"4909876543210", name:"歯みがきガム", maker:"Happy Pet", type:"ケア"},
-  {jan:"4987654321098", name:"肉球ケアクリーム", maker:"Mofu Lab", type:"ケア"},
-  {jan:"4977777777777", name:"ふわふわ猫じゃらし", maker:"Nyan Works", type:"おもちゃ"}
+const sampleProducts = [
+  {jan:"4901234567890",name:"やさしいチキンフード",maker:"Paw Foods",type:"フード"},
+  {jan:"4909876543210",name:"歯みがきガム",maker:"Happy Pet",type:"ケア用品"},
+  {jan:"4987654321098",name:"肉球ケアクリーム",maker:"Mofu Lab",type:"ケア用品"},
+  {jan:"4977777777777",name:"ふわふわ猫じゃらし",maker:"Nyan Works",type:"おもちゃ"}
 ];
+if(!state.products.length){
+  state.products = sampleProducts.map((p,i)=>({
+    id:Date.now()+i,
+    ...p,
+    url:"",
+    memo:"サンプル商品",
+    favorite:false,
+    createdAt:Date.now()+i
+  }));
+  localStorage.setItem("pawpalState",JSON.stringify(state));
+}
 
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
 function save(){ localStorage.setItem("pawpalState", JSON.stringify(state)); renderAll(); }
 function petEmoji(type){ return type.includes("猫")?"🐱":type.includes("うさぎ")?"🐰":type.includes("鳥")?"🐦":type.includes("小動物")?"🐹":type.includes("犬")?"🐶":"🐾"; }
 function activePet(){ return state.pets.find(p=>p.id===state.activePet) || state.pets[0]; }
@@ -548,16 +562,227 @@ function renderPlaces(){
 $("#placeSearch").oninput=renderPlaces;
 $$(".chip").forEach(c=>c.onclick=()=>{$$(".chip").forEach(x=>x.classList.remove("active"));c.classList.add("active");placeFilter=c.dataset.filter;renderPlaces();});
 
-function renderProducts(){
-  const q=$("#productSearch").value.toLowerCase();
-  const arr=products.filter(x=>`${x.name}${x.maker}${x.type}`.toLowerCase().includes(q));
-  $("#productList").innerHTML=arr.map(x=>`<div class="item"><div><b>🛍️ ${x.name}</b><div class="meta">${x.maker} ・ ${x.type}</div></div><span>›</span></div>`).join("") || '<div class="empty">商品が見つかりません</div>';
+
+let editingProductId=null;
+let favoriteOnly=false;
+
+function normalizeJan(v){
+  return String(v||"").replace(/\D/g,"").slice(0,14);
 }
+function getProduct(id){
+  return state.products.find(p=>p.id===id);
+}
+function lastPurchaseForProduct(id){
+  return state.purchaseHistory
+    .filter(x=>x.productId===id)
+    .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||b.id-a.id)[0];
+}
+function resetProductForm(){
+  editingProductId=null;
+  $("#productFormTitle").textContent="＋ 商品を登録";
+  $("#cancelProductEditBtn").style.display="none";
+  $("#saveProductBtn").textContent="💾 商品を保存";
+  $("#productJan").value="";
+  $("#productName").value="";
+  $("#productMaker").value="";
+  $("#productType").value="フード";
+  $("#productUrl").value="";
+  $("#productMemo").value="";
+  $("#productFavorite").checked=false;
+}
+function loadProductForEdit(id){
+  const p=getProduct(id);if(!p)return;
+  editingProductId=id;
+  $("#productFormTitle").textContent="✏️ 商品を編集";
+  $("#cancelProductEditBtn").style.display="";
+  $("#saveProductBtn").textContent="💾 変更を保存";
+  $("#productJan").value=p.jan||"";
+  $("#productName").value=p.name||"";
+  $("#productMaker").value=p.maker||"";
+  $("#productType").value=p.type||"その他";
+  $("#productUrl").value=p.url||"";
+  $("#productMemo").value=p.memo||"";
+  $("#productFavorite").checked=!!p.favorite;
+  go("products");
+  window.scrollTo({top:280,behavior:"smooth"});
+}
+$("#cancelProductEditBtn").onclick=resetProductForm;
+
+$("#productJan").oninput=e=>e.target.value=normalizeJan(e.target.value);
+$("#janInput").oninput=e=>e.target.value=normalizeJan(e.target.value);
+
+$("#saveProductBtn").onclick=()=>{
+  const jan=normalizeJan($("#productJan").value);
+  const name=$("#productName").value.trim();
+  const maker=$("#productMaker").value.trim();
+  if(!jan||jan.length<8){alert("JANコードを8〜14桁で入力してください");return;}
+  if(!name){alert("商品名を入力してください");return;}
+
+  const duplicate=state.products.find(p=>p.jan===jan&&p.id!==editingProductId);
+  if(duplicate){
+    alert(`このJANコードは「${duplicate.name}」で登録済みです。`);
+    return;
+  }
+
+  const data={
+    jan,
+    name,
+    maker,
+    type:$("#productType").value,
+    url:$("#productUrl").value.trim(),
+    memo:$("#productMemo").value.trim(),
+    favorite:$("#productFavorite").checked
+  };
+
+  if(editingProductId){
+    const idx=state.products.findIndex(p=>p.id===editingProductId);
+    if(idx>=0)state.products[idx]={...state.products[idx],...data,updatedAt:Date.now()};
+  }else{
+    state.products.unshift({id:Date.now(),...data,createdAt:Date.now()});
+  }
+  resetProductForm();
+  save();
+};
+
+window.editProduct=id=>loadProductForEdit(id);
+
+window.deleteProduct=id=>{
+  const p=getProduct(id);if(!p)return;
+  if(!confirm(`「${p.name}」を削除しますか？\n購入履歴も一緒に削除します。`))return;
+  state.products=state.products.filter(x=>x.id!==id);
+  state.purchaseHistory=state.purchaseHistory.filter(x=>x.productId!==id);
+  if(editingProductId===id)resetProductForm();
+  save();
+};
+
+window.toggleProductFavorite=id=>{
+  const p=getProduct(id);if(!p)return;
+  p.favorite=!p.favorite;
+  save();
+};
+
+window.showPurchaseForm=id=>{
+  const el=document.querySelector(`[data-purchase-form="${id}"]`);
+  if(!el)return;
+  el.style.display=el.style.display==="grid"?"none":"grid";
+};
+
+window.savePurchase=id=>{
+  const p=getProduct(id);if(!p)return;
+  const date=document.querySelector(`[data-buy-date="${id}"]`)?.value||new Date().toISOString().slice(0,10);
+  const price=Number(document.querySelector(`[data-buy-price="${id}"]`)?.value)||0;
+  const qty=Math.max(1,Number(document.querySelector(`[data-buy-qty="${id}"]`)?.value)||1);
+  const shop=document.querySelector(`[data-buy-shop="${id}"]`)?.value.trim()||"";
+  const memo=document.querySelector(`[data-buy-memo="${id}"]`)?.value.trim()||"";
+  state.purchaseHistory.unshift({
+    id:Date.now(),
+    productId:id,
+    productName:p.name,
+    jan:p.jan,
+    date,
+    price,
+    qty,
+    shop,
+    memo
+  });
+  save();
+};
+
+window.deletePurchase=id=>{
+  if(!confirm("この購入履歴を削除しますか？"))return;
+  state.purchaseHistory=state.purchaseHistory.filter(x=>x.id!==id);
+  save();
+};
+
+$("#favoriteOnlyBtn").onclick=()=>{
+  favoriteOnly=!favoriteOnly;
+  $("#favoriteOnlyBtn").textContent=favoriteOnly?"すべて表示":"❤️ お気に入りだけ";
+  renderProducts();
+};
 $("#productSearch").oninput=renderProducts;
+$("#productSort").onchange=renderProducts;
+
+function renderProducts(){
+  const q=($("#productSearch")?.value||"").trim().toLowerCase();
+  let arr=[...state.products].filter(p=>{
+    const text=`${p.name||""}${p.maker||""}${p.type||""}${p.jan||""}${p.memo||""}`.toLowerCase();
+    return (!q||text.includes(q))&&(!favoriteOnly||p.favorite);
+  });
+
+  const sort=$("#productSort")?.value||"new";
+  if(sort==="name")arr.sort((a,b)=>(a.name||"").localeCompare(b.name||"","ja"));
+  else if(sort==="purchase")arr.sort((a,b)=>{
+    const ad=lastPurchaseForProduct(a.id)?.date||"";
+    const bd=lastPurchaseForProduct(b.id)?.date||"";
+    return bd.localeCompare(ad)||(b.createdAt||0)-(a.createdAt||0);
+  });
+  else arr.sort((a,b)=>(b.createdAt||b.id||0)-(a.createdAt||a.id||0));
+
+  $("#productCountBadge").textContent=`${state.products.length}商品`;
+
+  $("#productList").innerHTML=arr.length?arr.map(p=>{
+    const last=lastPurchaseForProduct(p.id);
+    return `<div class="product-card ${p.favorite?"favorite":""}">
+      <div class="product-card-top">
+        <div>
+          <div class="product-name">${p.favorite?"❤️ ":""}🛍️ ${escapeHtml(p.name)}</div>
+          <div class="product-meta">${escapeHtml(p.maker||"メーカー未設定")} ・ ${escapeHtml(p.type||"その他")}<br>JAN: ${escapeHtml(p.jan||"未設定")}${last?`<br>最終購入: ${escapeHtml(last.date)}${last.price?` ・ ¥${Number(last.price).toLocaleString("ja-JP")}`:""}`:""}</div>
+          ${p.memo?`<div class="product-meta">📝 ${escapeHtml(p.memo)}</div>`:""}
+          ${p.url?`<a class="product-url" href="${escapeHtml(p.url)}" target="_blank" rel="noopener">🔗 メーカー商品ページを開く</a>`:""}
+        </div>
+      </div>
+      <div class="product-actions">
+        <button class="product-action favorite" onclick="toggleProductFavorite(${p.id})">${p.favorite?"💔 お気に入り解除":"❤️ お気に入り"}</button>
+        <button class="product-action" onclick="editProduct(${p.id})">✏️ 編集</button>
+        <button class="product-action buy" onclick="showPurchaseForm(${p.id})">🧾 購入を記録</button>
+        <button class="product-action delete" onclick="deleteProduct(${p.id})">🗑️ 削除</button>
+      </div>
+      <div class="purchase-form" data-purchase-form="${p.id}" style="display:none">
+        <input data-buy-date="${p.id}" type="date" value="${new Date().toISOString().slice(0,10)}">
+        <input data-buy-price="${p.id}" type="number" inputmode="numeric" placeholder="価格（円）">
+        <input data-buy-qty="${p.id}" type="number" min="1" value="1" placeholder="個数">
+        <input data-buy-shop="${p.id}" placeholder="購入店">
+        <input class="full" data-buy-memo="${p.id}" placeholder="購入メモ">
+        <button class="primary full" onclick="savePurchase(${p.id})">✅ 購入履歴に追加</button>
+      </div>
+    </div>`;
+  }).join(""):'<div class="empty">条件に合う商品がありません</div>';
+
+  renderPurchaseHistory();
+}
+
+function renderPurchaseHistory(){
+  const rows=[...state.purchaseHistory].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||b.id-a.id);
+  $("#purchaseCountBadge").textContent=`${rows.length}件`;
+  $("#purchaseHistoryList").innerHTML=rows.length?rows.map(x=>`
+    <div class="item">
+      <div class="purchase-row">
+        <div>
+          <b>${escapeHtml(x.productName||"商品")}</b>
+          <div class="meta">${escapeHtml(x.date||"")} ・ ${x.qty||1}個${x.shop?` ・ ${escapeHtml(x.shop)}`:""}<br>JAN: ${escapeHtml(x.jan||"")}${x.memo?`<br>📝 ${escapeHtml(x.memo)}`:""}</div>
+        </div>
+        <div>
+          <div class="purchase-total">${x.price?`¥${(Number(x.price)*(Number(x.qty)||1)).toLocaleString("ja-JP")}`:""}</div>
+          <button class="text-btn" onclick="deletePurchase(${x.id})">削除</button>
+        </div>
+      </div>
+    </div>`).join(""):'<div class="empty">購入履歴はまだありません 🧾</div>';
+}
+
 $("#janSearchBtn").onclick=()=>{
-  const jan=$("#janInput").value.trim();
-  const p=products.find(x=>x.jan===jan);
-  $("#janResult").innerHTML=p?`<b>✅ ${p.name}</b><br>${p.maker} ・ ${p.type}<br><small>JAN: ${p.jan}</small>`:`<b>未登録の商品です</b><br>JAN: ${jan||"未入力"}<br><small>今後、メーカー商品ページ検索と連携できます。</small>`;
+  const jan=normalizeJan($("#janInput").value);
+  if(!jan){
+    $("#janResult").innerHTML="<b>JANコードを入力してください</b>";
+    return;
+  }
+  const p=state.products.find(x=>x.jan===jan);
+  if(p){
+    $("#janResult").innerHTML=`<b>✅ ${escapeHtml(p.name)}</b><br>${escapeHtml(p.maker||"メーカー未設定")} ・ ${escapeHtml(p.type||"その他")}<br><small>JAN: ${escapeHtml(p.jan)}</small><br><button class="product-action" onclick="editProduct(${p.id})">商品を開く・編集</button>`;
+  }else{
+    $("#janResult").innerHTML=`<b>未登録の商品です</b><br>JAN: ${escapeHtml(jan)}<br><small>下の商品登録フォームにJANコードを入れました。</small>`;
+    $("#productJan").value=jan;
+    $("#productName").focus();
+  }
 };
 
 $("#themeBtn").onclick=()=>document.body.classList.toggle("alt");
@@ -1408,5 +1633,4 @@ try{if($("#lifeDate")&&!$("#lifeDate").value)$("#lifeDate").value=new Date().toI
 try{loadEmergencyForm();}catch(e){}
 
 try{refreshSessionIfNeeded().then(()=>{renderCloudSettings();loadCurrentFamily();});}catch(e){}
-
 

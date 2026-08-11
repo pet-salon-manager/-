@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v15-free-local-20260811';
+const CACHE='pawpal-v16-products-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{
