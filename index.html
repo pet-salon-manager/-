@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.2</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.3</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -154,17 +154,37 @@
 </div>
 </section>
 
+      
       <section id="places" class="screen">
-        <div class="screen-head"><h2>🗺️ お店</h2><p>動物病院・トリミング・ホテルを探す</p></div>
-        <div class="searchbar"><input id="placeSearch" placeholder="店名・地域・種類で検索"><span>🔎</span></div>
-        <div class="chips">
-          <button class="chip active" data-filter="すべて">すべて</button>
-          <button class="chip" data-filter="病院">🏥 病院</button>
-          <button class="chip" data-filter="トリミング">✂️ トリミング</button>
-          <button class="chip" data-filter="ホテル">🏨 ホテル</button>
+        <div class="screen-head">
+          <h2>🗺️ お店</h2>
+          <p>動物病院・トリミング・ホテルを探して、自分用に管理</p>
         </div>
-        <div id="placeList" class="list"></div>
+
+        <div class="searchbar">
+          <input id="placeSearch" placeholder="店名・地域・種類で検索">
+          <span>🔎</span>
+        </div>
+
+        <div class="chips place-chips">
+          <button class="chip place-filter active" data-filter="すべて">すべて</button>
+          <button class="chip place-filter" data-filter="病院">🏥 病院</button>
+          <button class="chip place-filter" data-filter="トリミング">✂️ トリミング</button>
+          <button class="chip place-filter" data-filter="ホテル">🏨 ホテル</button>
+          <button class="chip place-filter" data-filter="お気に入り">❤️ お気に入り</button>
+        </div>
+
+        <div id="placeList" class="place-list"></div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>📌 自分のお店メモ</h3>
+            <span id="placeMemoCount" class="summary-badge">0件</span>
+          </div>
+          <div id="placeMemoList" class="list"></div>
+        </div>
       </section>
+
 
       
       
@@ -618,6 +638,41 @@
         ・明るい場所で試す<br>
         ・読み取れない場合は「写真から読み取る」かJAN手入力も使えます
       </div>
+    </div>
+  </div>
+
+  
+  <div id="placeDetailModal" class="place-modal" aria-hidden="true">
+    <div class="place-modal-card">
+      <div class="place-modal-head">
+        <div class="place-title-wrap">
+          <div id="placeDetailEmoji" class="place-detail-emoji">🏥</div>
+          <div>
+            <h3 id="placeDetailName">お店</h3>
+            <div id="placeDetailMeta" class="place-detail-meta"></div>
+          </div>
+        </div>
+        <button id="closePlaceDetailBtn" type="button" class="place-modal-close">×</button>
+      </div>
+
+      <div id="placeDetailBody" class="place-detail-body"></div>
+
+      <div class="place-action-grid">
+        <a id="placePhoneBtn" class="place-action-btn" href="#">📞 電話</a>
+        <a id="placeMapBtn" class="place-action-btn" href="#" target="_blank" rel="noopener">🗺️ 地図</a>
+        <a id="placeWebBtn" class="place-action-btn" href="#" target="_blank" rel="noopener">🌐 Web</a>
+      </div>
+
+      <div class="place-toggle-grid">
+        <button id="placeFavoriteBtn" type="button" class="secondary">❤️ お気に入り</button>
+        <button id="placeVisitedBtn" type="button" class="secondary">✅ 行った</button>
+      </div>
+
+      <label>自分用メモ
+        <textarea id="placeMemoInput" placeholder="先生の印象、料金、次回予約、注意点など"></textarea>
+      </label>
+      <button id="savePlaceMemoBtn" type="button" class="primary">💾 メモを保存</button>
+      <button id="closePlaceDetailBottomBtn" type="button" class="place-bottom-close">← お店一覧に戻る</button>
     </div>
   </div>
 

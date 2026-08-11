@@ -784,3 +784,56 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
+
+/* PawPal v18.3 - working places */
+.place-list{display:flex;flex-direction:column;gap:10px}
+.place-card{
+  border:1px solid #f0dfe8;
+  background:#fff9fc;
+  border-radius:18px;
+  padding:14px;
+}
+.place-card-row{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.place-card-main{display:flex;gap:10px;align-items:flex-start}
+.place-card-emoji{font-size:28px;line-height:1}
+.place-card-name{font-size:16px;font-weight:900}
+.place-card-meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.55}
+.place-card-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.place-badge{font-size:10px;font-weight:800;border-radius:999px;padding:5px 8px;background:#f6f0f8;color:#725f73}
+.place-badge.favorite{background:#fff0f6;color:#c44f84}
+.place-badge.visited{background:#eefaf2;color:#4d7d5b}
+.place-open-btn{
+  border:0;background:transparent;font-size:24px;color:#6d5d69;
+  min-width:44px;min-height:44px
+}
+.place-modal{
+  position:fixed;inset:0;z-index:10030;display:none;align-items:flex-end;justify-content:center;
+  background:rgba(36,27,39,.62);padding:12px
+}
+.place-modal.open{display:flex}
+.place-modal-card{
+  width:min(100%,560px);max-height:88vh;overflow-y:auto;background:#fff;
+  border-radius:24px 24px 18px 18px;padding:16px
+}
+.place-modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.place-title-wrap{display:flex;gap:10px;align-items:flex-start}
+.place-detail-emoji{font-size:34px}
+.place-detail-meta{font-size:11px;color:var(--muted);line-height:1.5}
+.place-modal-close{
+  border:0;width:40px;height:40px;border-radius:50%;background:#f7eef3;color:#95647d;
+  font-size:26px;flex:0 0 auto
+}
+.place-detail-body{
+  margin:14px 0;padding:13px;border-radius:15px;background:#faf7fa;font-size:12px;line-height:1.7
+}
+.place-action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.place-action-btn{
+  text-decoration:none;text-align:center;padding:11px 6px;border-radius:13px;background:#f4f0ff;
+  color:#6658ac;font-size:12px;font-weight:900
+}
+.place-toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px}
+.place-bottom-close{
+  width:100%;margin-top:10px;border:0;border-radius:14px;padding:12px;background:#f7eef3;
+  color:#8f6079;font-weight:900
+}
+@media(min-width:700px){.place-modal{align-items:center}.place-modal-card{border-radius:24px}}

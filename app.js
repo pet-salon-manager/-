@@ -3,6 +3,8 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"activePet":null,"health":[],"events":[]}');
 state.products ||= [];
+state.placePrefs ||= {};
+state.placeMemos ||= {};
 state.purchaseHistory ||= [];
 state.emergencyProfiles ||= [];
 state.lifeRecords ||= [];
@@ -114,11 +116,11 @@ async function removeAlbumItem(id){
 
 
 const places = [
-  {name:"さくら動物病院", type:"病院", area:"東京都", emoji:"🏥", note:"一般診療・予防接種"},
-  {name:"ハッピートリミング", type:"トリミング", area:"神奈川県", emoji:"✂️", note:"小型犬・猫対応"},
-  {name:"わんこホテル Sunny", type:"ホテル", area:"静岡県", emoji:"🏨", note:"一時預かり・宿泊"},
-  {name:"みどり動物クリニック", type:"病院", area:"山梨県", emoji:"🏥", note:"犬・猫・小動物"},
-  {name:"Paw Spa", type:"トリミング", area:"長野県", emoji:"🫧", note:"シャンプー・カット"}
+  {id:"sakura-vet",name:"さくら動物病院",type:"病院",area:"東京都",city:"世田谷区",emoji:"🏥",note:"一般診療・予防接種",hours:"9:00〜12:00 / 16:00〜19:00",phone:"0312345678",address:"東京都世田谷区（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("さくら動物病院 東京都")},
+  {id:"happy-trim",name:"ハッピートリミング",type:"トリミング",area:"神奈川県",city:"横浜市",emoji:"✂️",note:"小型犬・猫対応",hours:"10:00〜18:00",phone:"0451234567",address:"神奈川県横浜市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("ハッピートリミング 神奈川県")},
+  {id:"sunny-hotel",name:"わんこホテル Sunny",type:"ホテル",area:"静岡県",city:"静岡市",emoji:"🏨",note:"一時預かり・宿泊",hours:"8:00〜20:00",phone:"0541234567",address:"静岡県静岡市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("わんこホテル Sunny 静岡県")},
+  {id:"midori-vet",name:"みどり動物クリニック",type:"病院",area:"山梨県",city:"甲府市",emoji:"🏥",note:"犬・猫・小動物",hours:"9:00〜18:00",phone:"0551234567",address:"山梨県甲府市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("みどり動物クリニック 山梨県")},
+  {id:"paw-spa",name:"Paw Spa",type:"トリミング",area:"長野県",city:"長野市",emoji:"🫧",note:"シャンプー・カット",hours:"10:00〜18:00",phone:"0261234567",address:"長野県長野市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("Paw Spa 長野県")}
 ];
 
 const sampleProducts = [
@@ -553,14 +555,147 @@ $("#clearHealthBtn").onclick=()=>{
   save();
 };
 
+
 let placeFilter="すべて";
-function renderPlaces(){
-  const q=$("#placeSearch").value.toLowerCase();
-  const arr=places.filter(x=>(placeFilter==="すべて"||x.type===placeFilter)&&(`${x.name}${x.area}${x.type}`.toLowerCase().includes(q)));
-  $("#placeList").innerHTML=arr.map(x=>`<div class="item"><div><b>${x.emoji} ${x.name}</b><div class="meta">${x.area} ・ ${x.note}</div></div><span>›</span></div>`).join("") || '<div class="empty">見つかりませんでした</div>';
+let currentPlaceId=null;
+
+function placePref(id){
+  state.placePrefs[id] ||= {favorite:false,visited:false};
+  return state.placePrefs[id];
 }
+
+function renderPlaces(){
+  const q=($("#placeSearch")?.value||"").trim().toLowerCase();
+  const arr=places.filter(x=>{
+    const pref=placePref(x.id);
+    const matchFilter=
+      placeFilter==="すべて" ||
+      (placeFilter==="お気に入り" && pref.favorite) ||
+      x.type===placeFilter;
+    const text=`${x.name}${x.area}${x.city||""}${x.type}${x.note}`.toLowerCase();
+    return matchFilter && (!q || text.includes(q));
+  });
+
+  $("#placeList").innerHTML=arr.length?arr.map(x=>{
+    const pref=placePref(x.id);
+    return `<div class="place-card">
+      <div class="place-card-row">
+        <div class="place-card-main">
+          <div class="place-card-emoji">${x.emoji}</div>
+          <div>
+            <div class="place-card-name">${escapeHtml(x.name)}</div>
+            <div class="place-card-meta">${escapeHtml(x.area)} ・ ${escapeHtml(x.note)}</div>
+            <div class="place-card-badges">
+              <span class="place-badge">${escapeHtml(x.type)}</span>
+              ${pref.favorite?'<span class="place-badge favorite">❤️ お気に入り</span>':""}
+              ${pref.visited?'<span class="place-badge visited">✅ 行った</span>':""}
+            </div>
+          </div>
+        </div>
+        <button class="place-open-btn" type="button" data-place-id="${x.id}" aria-label="${escapeHtml(x.name)}を開く">›</button>
+      </div>
+    </div>`;
+  }).join(""):'<div class="empty">見つかりませんでした</div>';
+
+  document.querySelectorAll(".place-open-btn").forEach(btn=>{
+    btn.onclick=()=>openPlaceDetail(btn.dataset.placeId);
+  });
+
+  renderPlaceMemos();
+}
+
+function renderPlaceMemos(){
+  const entries=Object.entries(state.placeMemos||{}).filter(([,memo])=>String(memo||"").trim());
+  $("#placeMemoCount").textContent=`${entries.length}件`;
+  $("#placeMemoList").innerHTML=entries.length?entries.map(([id,memo])=>{
+    const p=places.find(x=>x.id===id);
+    if(!p)return "";
+    return `<div class="item">
+      <div><b>${p.emoji} ${escapeHtml(p.name)}</b><div class="meta">${escapeHtml(memo)}</div></div>
+      <button class="text-btn" onclick="openPlaceDetail('${id}')">開く</button>
+    </div>`;
+  }).join(""):'<div class="empty">お店メモはまだありません</div>';
+}
+
+function openPlaceDetail(id){
+  const p=places.find(x=>x.id===id);
+  if(!p)return;
+  currentPlaceId=id;
+  const pref=placePref(id);
+
+  $("#placeDetailEmoji").textContent=p.emoji;
+  $("#placeDetailName").textContent=p.name;
+  $("#placeDetailMeta").textContent=`${p.area} ${p.city||""} ・ ${p.type}`;
+  $("#placeDetailBody").innerHTML=`
+    <b>${escapeHtml(p.note)}</b><br>
+    📍 ${escapeHtml(p.address||p.area)}<br>
+    🕒 ${escapeHtml(p.hours||"営業時間未登録")}
+  `;
+
+  $("#placePhoneBtn").href=p.phone?`tel:${p.phone}`:"#";
+  $("#placePhoneBtn").style.display=p.phone?"":"none";
+  $("#placeMapBtn").href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+" "+p.area+" "+(p.city||""))}`;
+  $("#placeWebBtn").href=p.url||"#";
+  $("#placeWebBtn").style.display=p.url?"":"none";
+
+  $("#placeFavoriteBtn").textContent=pref.favorite?"💔 お気に入り解除":"❤️ お気に入り";
+  $("#placeVisitedBtn").textContent=pref.visited?"↩️ 行ったを解除":"✅ 行った";
+  $("#placeMemoInput").value=state.placeMemos[id]||"";
+
+  $("#placeDetailModal").classList.add("open");
+  $("#placeDetailModal").setAttribute("aria-hidden","false");
+}
+
+function closePlaceDetail(){
+  $("#placeDetailModal").classList.remove("open");
+  $("#placeDetailModal").setAttribute("aria-hidden","true");
+  currentPlaceId=null;
+}
+
+window.openPlaceDetail=openPlaceDetail;
+
 $("#placeSearch").oninput=renderPlaces;
-$$(".chip").forEach(c=>c.onclick=()=>{$$(".chip").forEach(x=>x.classList.remove("active"));c.classList.add("active");placeFilter=c.dataset.filter;renderPlaces();});
+document.querySelectorAll(".place-filter").forEach(c=>{
+  c.onclick=()=>{
+    document.querySelectorAll(".place-filter").forEach(x=>x.classList.remove("active"));
+    c.classList.add("active");
+    placeFilter=c.dataset.filter;
+    renderPlaces();
+  };
+});
+
+$("#placeFavoriteBtn").onclick=()=>{
+  if(!currentPlaceId)return;
+  const pref=placePref(currentPlaceId);
+  pref.favorite=!pref.favorite;
+  save();
+  openPlaceDetail(currentPlaceId);
+};
+
+$("#placeVisitedBtn").onclick=()=>{
+  if(!currentPlaceId)return;
+  const pref=placePref(currentPlaceId);
+  pref.visited=!pref.visited;
+  save();
+  openPlaceDetail(currentPlaceId);
+};
+
+$("#savePlaceMemoBtn").onclick=()=>{
+  if(!currentPlaceId)return;
+  const memo=$("#placeMemoInput").value.trim();
+  if(memo)state.placeMemos[currentPlaceId]=memo;
+  else delete state.placeMemos[currentPlaceId];
+  save();
+  $("#savePlaceMemoBtn").textContent="✅ 保存しました";
+  setTimeout(()=>$("#savePlaceMemoBtn").textContent="💾 メモを保存",900);
+};
+
+$("#closePlaceDetailBtn").onclick=closePlaceDetail;
+$("#closePlaceDetailBottomBtn").onclick=closePlaceDetail;
+$("#placeDetailModal").addEventListener("click",e=>{
+  if(e.target.id==="placeDetailModal")closePlaceDetail();
+});
+
 
 
 let editingProductId=null;
