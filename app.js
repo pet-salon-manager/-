@@ -149,10 +149,11 @@ $("#saveHealthBtn").onclick=()=>{
 };
 
 $("#saveEventBtn").onclick=()=>{
-  const title=$("#eventTitle").value.trim(), date=$("#eventDate").value;
-  if(!title || !date){ alert("タイトルと日付を入力してください🌷"); return; }
-  state.events.push({id:Date.now(),type:$("#eventType").value,title,date});
-  state.events.sort((a,b)=>a.date.localeCompare(b.date)); $("#eventTitle").value=""; $("#eventDate").value=""; save();
+  const title=$("#eventTitle").value.trim(),date=$("#eventDate").value;
+  if(!title||!date){alert("タイトルと日付を入力してください🌷");return;}
+  state.events.push({id:Date.now(),petId:$("#eventPet").value?Number($("#eventPet").value):null,type:$("#eventType").value,title,date,time:$("#eventTime").value||"",repeat:$("#eventRepeat").value||"none",memo:$("#eventMemo").value.trim(),done:false});
+  state.events.sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+  $("#eventTitle").value="";$("#eventTime").value="";$("#eventMemo").value="";save();
 };
 
 function renderPets(){
@@ -314,14 +315,22 @@ function renderWeightChart(arr){
   summary.textContent=`${last.toFixed(1)}kg ${arrow} ${diff>=0?"+":""}${diff.toFixed(1)}kg`;
 }
 
-function renderEvents(){
-  const today=new Date().toISOString().slice(0,10);
-  const html=state.events.length?state.events.map(x=>`<div class="item"><div><b>${x.type} ${x.title}</b><div class="meta">${x.date}</div></div><button class="text-btn" onclick="deleteEvent(${x.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';
-  $("#eventList").innerHTML=html;
-  const todays=state.events.filter(x=>x.date===today);
-  $("#todayList").innerHTML=todays.length?todays.map(x=>`<div class="item"><div><b>${x.type} ${x.title}</b><div class="meta">今日</div></div><span>✨</span></div>`).join(""):'<div class="empty">今日はゆっくりできそうです ☕️</div>';
+let calendarCursor=new Date(),selectedCalendarDate="",futureOnly=false;
+function evEmoji(t){return t?.includes("ワクチン")?"💉":t?.includes("お薬")?"💊":t?.includes("病院")?"🏥":t?.includes("トリミング")?"✂️":t?.includes("記念日")?"🎂":"📌"}
+function evPet(e){return e.petId?(state.pets.find(p=>p.id===e.petId)?.name||"ペット"):"共通"}
+function renderCalendar(){
+ const g=$("#calendarGrid");if(!g)return;const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth();$("#calendarTitle").textContent=`${y}年 ${m+1}月`;
+ const start=new Date(y,m,1-new Date(y,m,1).getDay()),today=new Date().toISOString().slice(0,10);g.innerHTML="";
+ for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;const evs=state.events.filter(e=>e.date===ds),b=document.createElement("button");b.className="calendar-day"+(d.getMonth()!==m?" other":"")+(ds===today?" today":"")+(ds===selectedCalendarDate?" selected":"");b.innerHTML=`<span class="day-number">${d.getDate()}</span><div class="day-dots">${evs.slice(0,4).map(e=>`<span>${evEmoji(e.type)}</span>`).join("")}</div>`;b.onclick=()=>{selectedCalendarDate=ds;$("#eventDate").value=ds;renderEvents()};g.appendChild(b)}
 }
-window.deleteEvent=(id)=>{state.events=state.events.filter(x=>x.id!==id);save();};
+function renderEventPetOptions(){const s=$("#eventPet");if(!s)return;const cur=s.value;s.innerHTML='<option value="">共通</option>'+state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("");if([...s.options].some(o=>o.value===cur))s.value=cur;else if(activePet())s.value=activePet().id}
+function renderMedList(){const today=new Date().toISOString().slice(0,10);let a=state.events.filter(e=>e.type?.includes("お薬")||e.type?.includes("ワクチン"));if(futureOnly)a=a.filter(e=>e.date>=today);$("#medList").innerHTML=a.length?a.map(e=>`<div class="med-card"><div class="med-card-top"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}</div>${e.memo?`<div class="meta">📝 ${e.memo}</div>`:""}</div><button class="done-btn ${e.done?"done":""}" onclick="toggleEventDone(${e.id})">${e.done?"済み":"完了"}</button></div></div>`).join(""):'<div class="empty">薬・ワクチンの予定はまだありません 💊</div>'}
+function renderEvents(){renderEventPetOptions();renderCalendar();renderMedList();let a=[...state.events];if(selectedCalendarDate)a=a.filter(e=>e.date===selectedCalendarDate);$("#eventList").innerHTML=a.length?a.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}${e.done?" ・ ✅済み":""}</div></div><button class="text-btn" onclick="deleteEvent(${e.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';const t=new Date().toISOString().slice(0,10),todays=state.events.filter(e=>e.date===t);$("#todayList").innerHTML=todays.length?todays.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.time||"今日"} ・ ${evPet(e)}</div></div><span>${e.done?"✅":"✨"}</span></div>`).join(""):'<div class="empty">今日はゆっくりできそうです ☕️</div>'}
+window.deleteEvent=id=>{state.events=state.events.filter(e=>e.id!==id);save()};window.toggleEventDone=id=>{const e=state.events.find(x=>x.id===id);if(e){e.done=!e.done;save()}};
+$("#prevMonthBtn").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);selectedCalendarDate="";renderEvents()};
+$("#nextMonthBtn").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);selectedCalendarDate="";renderEvents()};
+$("#showAllEventsBtn").onclick=()=>{selectedCalendarDate="";renderEvents()};
+$("#showDueOnlyBtn").onclick=()=>{futureOnly=!futureOnly;$("#showDueOnlyBtn").textContent=futureOnly?"すべて":"今後だけ";renderMedList()};
 
 window.deleteHealth=(id)=>{
   state.health=state.health.filter(x=>x.id!==id);

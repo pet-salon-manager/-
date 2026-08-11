@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v3.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v4</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -100,18 +100,32 @@
       </section>
 
       <section id="schedule" class="screen">
-        <div class="screen-head"><h2>📅 予定</h2><p>病院・薬・トリミングをまとめて管理</p></div>
-        <div class="card section-card">
-          <h3>予定を追加</h3>
-          <label>種類
-            <select id="eventType"><option>💊 お薬</option><option>🏥 病院</option><option>✂️ トリミング</option><option>💉 ワクチン</option><option>🎂 記念日</option><option>📌 その他</option></select>
-          </label>
-          <label>タイトル<input id="eventTitle" placeholder="例：フィラリア予防薬"></label>
-          <label>日付<input id="eventDate" type="date"></label>
-          <button id="saveEventBtn" class="primary">🗓️ 予定を保存</button>
-        </div>
-        <div class="card section-card"><h3>予定一覧</h3><div id="eventList" class="list"></div></div>
-      </section>
+<div class="screen-head"><h2>📅 予定</h2><p>カレンダー・薬・ワクチンをまとめて管理</p></div>
+<div class="card section-card">
+  <div class="calendar-head"><button id="prevMonthBtn" class="soft-btn">‹</button><h3 id="calendarTitle"></h3><button id="nextMonthBtn" class="soft-btn">›</button></div>
+  <div class="weekday-row"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+  <div id="calendarGrid" class="calendar-grid"></div>
+</div>
+<div class="card section-card">
+  <h3>予定を追加</h3>
+  <label>ペット<select id="eventPet"></select></label>
+  <label>種類<select id="eventType"><option>💊 お薬</option><option>💉 ワクチン</option><option>🏥 病院</option><option>✂️ トリミング</option><option>🎂 記念日</option><option>📌 その他</option></select></label>
+  <label>タイトル<input id="eventTitle" placeholder="例：フィラリア予防薬"></label>
+  <label>日付<input id="eventDate" type="date"></label>
+  <label>時間<input id="eventTime" type="time"></label>
+  <label>繰り返し<select id="eventRepeat"><option value="none">なし</option><option value="monthly">毎月</option><option value="yearly">毎年</option></select></label>
+  <label>メモ<textarea id="eventMemo" placeholder="薬の量・病院名・注意点など"></textarea></label>
+  <button id="saveEventBtn" class="primary">🗓️ 予定を保存</button>
+</div>
+<div class="card section-card">
+  <div class="section-title"><h3>💊 薬・ワクチン管理</h3><button id="showDueOnlyBtn" class="soft-btn">今後だけ</button></div>
+  <div id="medList" class="list"></div>
+</div>
+<div class="card section-card">
+  <div class="section-title"><h3>予定一覧</h3><button id="showAllEventsBtn" class="text-btn">すべて表示</button></div>
+  <div id="eventList" class="list"></div>
+</div>
+</section>
 
       <section id="places" class="screen">
         <div class="screen-head"><h2>🗺️ お店</h2><p>動物病院・トリミング・ホテルを探す</p></div>
