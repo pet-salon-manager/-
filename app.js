@@ -30,13 +30,116 @@ function go(screen){
 $$(".nav-btn").forEach(b=>b.onclick=()=>go(b.dataset.screen));
 $$("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
 
-$("#addPetBtn").onclick=()=>$("#petDialog").showModal();
+let editingPetId = null;
+let pendingPhoto = "";
+
+function openPetDialog(p=null){
+  editingPetId = p ? p.id : null;
+  $("#petDialogTitle").textContent = p ? "✏️ プロフィール編集" : "🐾 ペットを登録";
+  $("#petName").value = p?.name || "";
+  $("#petType").value = p?.type || "🐶 犬";
+  $("#petBirthday").value = p?.birthday || "";
+  $("#petBreed").value = p?.breed || "";
+  $("#petSex").value = p?.sex || "";
+  $("#petNote").value = p?.note || "";
+  pendingPhoto = p?.photo || "";
+  renderPhotoPreview();
+  $("#petDialog").showModal();
+}
+
+function renderPhotoPreview(){
+  const box=$("#petPhotoPreview");
+  if(pendingPhoto){
+    box.innerHTML=`<img src="${pendingPhoto}" alt="ペット写真">`;
+  }else{
+    box.textContent=petEmoji($("#petType").value);
+  }
+}
+
+function resizeImage(file, maxSize=700, quality=.82){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>h && w>maxSize){h=Math.round(h*maxSize/w);w=maxSize;}
+        else if(h>=w && h>maxSize){w=Math.round(w*maxSize/h);h=maxSize;}
+        const canvas=document.createElement("canvas");
+        canvas.width=w;canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL("image/jpeg",quality));
+      };
+      img.onerror=reject;
+      img.src=reader.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+$("#addPetBtn").onclick=()=>openPetDialog();
+$("#editPetBtn").onclick=()=>{
+  const p=activePet();
+  if(!p){alert("先にペットを登録してください🐾");return;}
+  openPetDialog(p);
+};
+$("#petType").onchange=renderPhotoPreview;
+$("#petPhoto").onchange=async(e)=>{
+  const file=e.target.files?.[0];
+  if(!file)return;
+  try{
+    pendingPhoto=await resizeImage(file);
+    renderPhotoPreview();
+  }catch{
+    alert("写真を読み込めませんでした");
+  }
+};
+$("#removePhotoBtn").onclick=()=>{
+  pendingPhoto="";
+  $("#petPhoto").value="";
+  renderPhotoPreview();
+};
+
 $("#savePetBtn").onclick=(e)=>{
   e.preventDefault();
   const name=$("#petName").value.trim();
   if(!name) return;
-  const p={id:Date.now(),name,type:$("#petType").value,birthday:$("#petBirthday").value,breed:$("#petBreed").value.trim()};
-  state.pets.push(p); state.activePet=p.id; save(); $("#petDialog").close(); $("#petForm").reset();
+  const data={
+    name,
+    type:$("#petType").value,
+    birthday:$("#petBirthday").value,
+    breed:$("#petBreed").value.trim(),
+    sex:$("#petSex").value,
+    note:$("#petNote").value.trim(),
+    photo:pendingPhoto
+  };
+
+  if(editingPetId){
+    const idx=state.pets.findIndex(p=>p.id===editingPetId);
+    if(idx>=0) state.pets[idx]={...state.pets[idx],...data};
+  }else{
+    const p={id:Date.now(),...data};
+    state.pets.push(p);
+    state.activePet=p.id;
+  }
+  save();
+  $("#petDialog").close();
+  $("#petForm").reset();
+  editingPetId=null;
+  pendingPhoto="";
+};
+
+$("#deletePetBtn").onclick=()=>{
+  const p=activePet();
+  if(!p){alert("削除するペットがありません");return;}
+  if(!confirm(`${p.name}ちゃんのプロフィールを削除しますか？
+健康記録もこのペット分は削除されます。`)) return;
+  const id=p.id;
+  state.pets=state.pets.filter(x=>x.id!==id);
+  state.health=state.health.filter(x=>x.petId!==id);
+  state.activePet=state.pets[0]?.id || null;
+  save();
 };
 
 $("#saveHealthBtn").onclick=()=>{
@@ -54,14 +157,53 @@ $("#saveEventBtn").onclick=()=>{
 
 function renderPets(){
   const box=$("#petCards"); box.innerHTML="";
-  if(!state.pets.length){ box.innerHTML='<div class="empty">まだ登録がありません。<br>「＋ 追加」から登録してね 🐾</div>'; return; }
+  if(!state.pets.length){
+    box.innerHTML='<div class="empty">まだ登録がありません。<br>「＋ 追加」から登録してね 🐾</div>';
+    $("#petProfileBody").innerHTML='<div class="empty">ペットを登録するとプロフィールが表示されます 💗</div>';
+    $("#editPetBtn").style.display="none";
+    $("#deletePetBtn").style.display="none";
+    return;
+  }
+  $("#editPetBtn").style.display="";
+  $("#deletePetBtn").style.display="";
   state.pets.forEach(p=>{
     const d=document.createElement("button");
     d.className="pet-card"+(p.id===state.activePet?" active":"");
-    d.innerHTML=`<span class="big">${petEmoji(p.type)}</span><b>${p.name}</b><small>${p.breed||p.type}</small>`;
+    const visual=p.photo
+      ? `<img class="pet-card-photo" src="${p.photo}" alt="${p.name}">`
+      : `<span class="pet-card-photo fallback">${petEmoji(p.type)}</span>`;
+    d.innerHTML=`${visual}<b>${p.name}</b><small>${p.breed||p.type}</small>`;
     d.onclick=()=>{state.activePet=p.id;save();};
     box.appendChild(d);
   });
+  renderPetProfile();
+}
+
+function renderPetProfile(){
+  const p=activePet();
+  if(!p){
+    $("#petProfileBody").innerHTML='<div class="empty">ペットを登録するとプロフィールが表示されます 💗</div>';
+    return;
+  }
+  const visual=p.photo
+    ? `<img class="profile-photo" src="${p.photo}" alt="${p.name}">`
+    : `<div class="profile-photo profile-photo-fallback">${petEmoji(p.type)}</div>`;
+  $("#petProfileBody").innerHTML=`
+    <div class="profile-hero">
+      ${visual}
+      <div>
+        <div class="profile-name">${p.name}</div>
+        <div class="profile-sub">${p.breed||p.type}</div>
+      </div>
+    </div>
+    <div class="profile-info">
+      <div class="info-box"><small>種類</small><b>${p.type}</b></div>
+      <div class="info-box"><small>性別</small><b>${p.sex||"未設定"}</b></div>
+      <div class="info-box"><small>誕生日</small><b>${p.birthday||"未設定"}</b></div>
+      <div class="info-box"><small>健康記録</small><b>${state.health.filter(x=>x.petId===p.id).length}件</b></div>
+    </div>
+    ${p.note?`<div class="profile-note">💬 ${p.note}</div>`:""}
+  `;
 }
 
 function renderHealth(){
