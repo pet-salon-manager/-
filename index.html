@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v6</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v7</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -35,6 +35,7 @@
           <button class="quick card" data-go="schedule"><span>📅</span><b>予定</b><small>薬・病院</small></button>
           <button class="quick card" data-go="places"><span>🗺️</span><b>お店</b><small>病院・トリミング</small></button>
           <button class="quick card" data-go="documents"><span>📄</span><b>書類</b><small>証明書・保険証</small></button>
+          <button class="quick card" data-go="album"><span>📸</span><b>アルバム</b><small>成長・思い出</small></button>
           <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
@@ -161,7 +162,34 @@
       </section>
 
       
-      <section id="documents" class="screen">
+      
+      <section id="album" class="screen">
+        <div class="screen-head"><h2>📸 成長アルバム</h2><p>写真・体重・思い出をペットごとに残す</p></div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>思い出を追加</h3><span class="summary-badge">端末内保存</span></div>
+          <label>ペット<select id="albumPet"></select></label>
+          <label>日付<input id="albumDate" type="date"></label>
+          <label>写真<input id="albumFile" type="file" accept="image/*"></label>
+          <div id="albumPreview" class="album-preview">📷</div>
+          <label>体重（kg）<input id="albumWeight" type="number" step="0.1" placeholder="例：4.8"></label>
+          <label>ひとこと<textarea id="albumMemo" placeholder="初めてのお散歩、トリミング後、誕生日など"></textarea></label>
+          <button id="saveAlbumBtn" class="primary">💖 アルバムに保存</button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>成長の記録</h3>
+            <select id="albumSort" class="mini-select">
+              <option value="new">新しい順</option>
+              <option value="old">古い順</option>
+            </select>
+          </div>
+          <div id="albumList" class="album-grid"></div>
+        </div>
+      </section>
+
+<section id="documents" class="screen">
         <div class="screen-head"><h2>📄 書類</h2><p>証明書・保険証・検査結果をペットごとに保存</p></div>
 
         <div class="card section-card">

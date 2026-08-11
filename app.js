@@ -61,6 +61,51 @@ async function removeDocument(id){
   });
 }
 
+const ALBUM_STORE="album";
+
+function openPawDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open("PawPalMedia",1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(ALBUM_STORE)){
+        const store=db.createObjectStore(ALBUM_STORE,{keyPath:"id"});
+        store.createIndex("petId","petId",{unique:false});
+        store.createIndex("date","date",{unique:false});
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function putAlbumItem(item){
+  const db=await openPawDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(ALBUM_STORE,"readwrite");
+    tx.objectStore(ALBUM_STORE).put(item);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{db.close();reject(tx.error);};
+  });
+}
+async function getAlbumItems(){
+  const db=await openPawDB();
+  return new Promise((resolve,reject)=>{
+    const req=db.transaction(ALBUM_STORE,"readonly").objectStore(ALBUM_STORE).getAll();
+    req.onsuccess=()=>{db.close();resolve(req.result||[]);};
+    req.onerror=()=>{db.close();reject(req.error);};
+  });
+}
+async function removeAlbumItem(id){
+  const db=await openPawDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(ALBUM_STORE,"readwrite");
+    tx.objectStore(ALBUM_STORE).delete(id);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{db.close();reject(tx.error);};
+  });
+}
+
+
 
 const places = [
   {name:"さくら動物病院", type:"病院", area:"東京都", emoji:"🏥", note:"一般診療・予防接種"},
@@ -645,11 +690,153 @@ async function renderDocuments(){
 }
 
 
+
+let pendingAlbumPhoto="";
+
+function renderAlbumPetOptions(){
+  const s=$("#albumPet");
+  if(!s)return;
+  const cur=s.value;
+  s.innerHTML=state.pets.length
+    ? state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("")
+    : '<option value="">ペットを先に登録してください</option>';
+  if([...s.options].some(o=>o.value===cur))s.value=cur;
+  else if(activePet())s.value=String(activePet().id);
+}
+
+function renderAlbumPreview(){
+  const box=$("#albumPreview");
+  if(!box)return;
+  if(pendingAlbumPhoto){
+    box.innerHTML=`<img src="${pendingAlbumPhoto}" alt="アルバム写真">`;
+  }else{
+    box.textContent="📷";
+  }
+}
+
+$("#albumFile").onchange=async(e)=>{
+  const file=e.target.files?.[0];
+  if(!file)return;
+  try{
+    pendingAlbumPhoto=await resizeImage(file,1000,.82);
+    renderAlbumPreview();
+  }catch{
+    alert("写真を読み込めませんでした");
+  }
+};
+
+$("#saveAlbumBtn").onclick=async()=>{
+  if(!state.pets.length){
+    alert("先にペットを登録してください🐾");
+    go("pets");
+    return;
+  }
+  const petId=Number($("#albumPet").value);
+  if(!petId || !pendingAlbumPhoto){
+    alert("ペットと写真を選んでください📸");
+    return;
+  }
+  const btn=$("#saveAlbumBtn");
+  btn.disabled=true;
+  btn.textContent="保存中…";
+  try{
+    const blob=await (await fetch(pendingAlbumPhoto)).blob();
+    const item={
+      id:Date.now(),
+      petId,
+      date:$("#albumDate").value || new Date().toISOString().slice(0,10),
+      weight:$("#albumWeight").value || "",
+      memo:$("#albumMemo").value.trim(),
+      blob
+    };
+    await putAlbumItem(item);
+
+    // Also add weight into health history if entered
+    if(item.weight){
+      state.health.unshift({
+        id:Date.now()+1,
+        petId,
+        date:item.date,
+        weight:item.weight,
+        condition:"ふつう",
+        memo:item.memo ? `アルバム: ${item.memo}` : "アルバムから記録"
+      });
+      localStorage.setItem("pawpalState",JSON.stringify(state));
+    }
+
+    $("#albumFile").value="";
+    $("#albumWeight").value="";
+    $("#albumMemo").value="";
+    pendingAlbumPhoto="";
+    renderAlbumPreview();
+    await renderAlbum();
+    renderHealth();
+    alert("アルバムに保存しました 📸✨");
+  }catch(e){
+    console.error(e);
+    alert("保存できませんでした。端末の空き容量を確認してください。");
+  }finally{
+    btn.disabled=false;
+    btn.textContent="💖 アルバムに保存";
+  }
+};
+
+$("#albumSort").onchange=()=>renderAlbum();
+
+async function renderAlbum(){
+  renderAlbumPetOptions();
+  const box=$("#albumList");
+  if(!box)return;
+  if(!state.pets.length){
+    box.innerHTML='<div class="empty">ペットを登録すると成長アルバムを使えます 📸</div>';
+    return;
+  }
+  box.innerHTML='<div class="empty">読み込み中…</div>';
+  try{
+    const petId=activePet()?.id;
+    let items=(await getAlbumItems()).filter(x=>x.petId===petId);
+    const sort=$("#albumSort")?.value || "new";
+    items.sort((a,b)=>sort==="old" ? (a.date||"").localeCompare(b.date||"") : (b.date||"").localeCompare(a.date||""));
+
+    if(!items.length){
+      box.innerHTML='<div class="empty">まだアルバム写真がありません 📷</div>';
+      return;
+    }
+
+    box.innerHTML="";
+    for(const item of items){
+      const url=URL.createObjectURL(item.blob);
+      const card=document.createElement("div");
+      card.className="album-card";
+      card.innerHTML=`
+        <img src="${url}" alt="成長記録">
+        <div class="album-card-body">
+          <div class="album-card-date">${item.date||"日付なし"}</div>
+          ${item.weight?`<span class="album-card-weight">⚖️ ${item.weight}kg</span>`:""}
+          ${item.memo?`<div class="album-card-note">${item.memo}</div>`:""}
+          <button class="album-delete" data-id="${item.id}">削除</button>
+        </div>`;
+      box.appendChild(card);
+      setTimeout(()=>URL.revokeObjectURL(url),120000);
+    }
+
+    box.querySelectorAll(".album-delete").forEach(btn=>btn.onclick=async()=>{
+      if(!confirm("このアルバム写真を削除しますか？"))return;
+      await removeAlbumItem(Number(btn.dataset.id));
+      await renderAlbum();
+    });
+  }catch(e){
+    console.error(e);
+    box.innerHTML='<div class="empty">アルバムを読み込めませんでした</div>';
+  }
+}
+
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum();
 }
 renderAll();
 
@@ -658,3 +845,5 @@ if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catc
 window.addEventListener("resize",()=>{ try{ renderHealth(); }catch(e){} });
 
 try{if($("#docDate")&&!$("#docDate").value)$("#docDate").value=new Date().toISOString().slice(0,10);}catch(e){}
+
+try{if($("#albumDate")&&!$("#albumDate").value)$("#albumDate").value=new Date().toISOString().slice(0,10);}catch(e){}
