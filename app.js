@@ -2,6 +2,8 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"activePet":null,"health":[],"events":[]}');
+state.foodProfiles ||= []; state.meals ||= [];
+
 
 const DOC_DB_NAME="PawPalDocuments";
 const DOC_DB_VERSION=1;
@@ -832,11 +834,155 @@ async function renderAlbum(){
 }
 
 
+
+function currentFoodPetId(){
+  const sel=$("#foodPet");
+  return sel?.value ? Number(sel.value) : (activePet()?.id || null);
+}
+
+function renderFoodPetOptions(){
+  const s=$("#foodPet");
+  if(!s)return;
+  const cur=s.value;
+  s.innerHTML=state.pets.length
+    ? state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("")
+    : '<option value="">ペットを先に登録してください</option>';
+  if([...s.options].some(o=>o.value===cur))s.value=cur;
+  else if(activePet())s.value=String(activePet().id);
+}
+
+function getFoodProfile(petId){
+  return state.foodProfiles.find(x=>x.petId===petId);
+}
+
+function loadFoodProfileForm(){
+  const petId=currentFoodPetId();
+  const f=getFoodProfile(petId);
+  $("#foodName").value=f?.name||"";
+  $("#foodMaker").value=f?.maker||"";
+  $("#foodDailyTarget").value=f?.dailyTarget||"";
+  $("#foodStock").value=f?.stock??"";
+  $("#foodBuyDate").value=f?.buyDate||"";
+  $("#foodNote").value=f?.note||"";
+}
+
+$("#foodPet").onchange=()=>{
+  loadFoodProfileForm();
+  renderFood();
+};
+
+$("#saveFoodProfileBtn").onclick=()=>{
+  if(!state.pets.length){alert("先にペットを登録してください🐾");go("pets");return;}
+  const petId=currentFoodPetId();
+  const name=$("#foodName").value.trim();
+  if(!name){alert("フード名を入力してください🍚");return;}
+  const profile={
+    petId,
+    name,
+    maker:$("#foodMaker").value.trim(),
+    dailyTarget:Number($("#foodDailyTarget").value)||0,
+    stock:Number($("#foodStock").value)||0,
+    initialStock:Number($("#foodStock").value)||0,
+    buyDate:$("#foodBuyDate").value||"",
+    note:$("#foodNote").value.trim()
+  };
+  const idx=state.foodProfiles.findIndex(x=>x.petId===petId);
+  if(idx>=0) state.foodProfiles[idx]={...state.foodProfiles[idx],...profile};
+  else state.foodProfiles.push(profile);
+  save();
+  alert("フード情報を保存しました 🍽️");
+};
+
+$("#saveMealBtn").onclick=()=>{
+  if(!state.pets.length){alert("先にペットを登録してください🐾");go("pets");return;}
+  const petId=currentFoodPetId();
+  const amount=Number($("#mealAmount").value);
+  if(!amount){alert("食べた量を入力してください🥣");return;}
+  state.meals.unshift({
+    id:Date.now(),
+    petId,
+    date:new Date().toISOString().slice(0,10),
+    time:new Date().toTimeString().slice(0,5),
+    type:$("#mealType").value,
+    appetite:$("#mealAppetite").value,
+    amount,
+    memo:$("#mealMemo").value.trim()
+  });
+  $("#mealAmount").value="";
+  $("#mealMemo").value="";
+  save();
+};
+
+$("#consumeStockBtn").onclick=()=>{
+  const petId=currentFoodPetId();
+  const f=getFoodProfile(petId);
+  if(!f){alert("先にフード情報を保存してください🍚");return;}
+  const today=new Date().toISOString().slice(0,10);
+  const consumed=state.meals.filter(m=>m.petId===petId && m.date===today).reduce((s,m)=>s+Number(m.amount||0),0);
+  if(consumed<=0){alert("今日の食事記録がありません");return;}
+  f.stock=Math.max(0,Number(f.stock||0)-consumed);
+  save();
+};
+
+$("#clearMealsBtn").onclick=()=>{
+  const petId=currentFoodPetId();
+  const count=state.meals.filter(m=>m.petId===petId).length;
+  if(!count){alert("削除する食事履歴がありません");return;}
+  if(!confirm(`このペットの食事履歴 ${count}件を削除しますか？`))return;
+  state.meals=state.meals.filter(m=>m.petId!==petId);
+  save();
+};
+
+function renderFood(){
+  renderFoodPetOptions();
+  const petId=currentFoodPetId();
+  if(!petId)return;
+  const f=getFoodProfile(petId);
+  const today=new Date().toISOString().slice(0,10);
+  const todayMeals=state.meals.filter(m=>m.petId===petId && m.date===today);
+  const total=todayMeals.reduce((s,m)=>s+Number(m.amount||0),0);
+  $("#todayFoodSummary").textContent=`${total}g / ${Number(f?.dailyTarget||0)}g`;
+
+  const stockBox=$("#foodStockCard");
+  if(!f){
+    stockBox.innerHTML='<div class="empty">フード情報を保存すると在庫が表示されます 🍚</div>';
+  }else{
+    const target=Number(f.dailyTarget||0);
+    const stock=Number(f.stock||0);
+    const days=target>0?Math.floor(stock/target):0;
+    const base=Math.max(stock,Number(f.initialStock||stock),1);
+    const pct=Math.max(0,Math.min(100,(stock/base)*100));
+    stockBox.innerHTML=`<div class="food-stock-card">
+      <div class="food-stock-name">🍚 ${f.name}</div>
+      <div class="food-stock-meta">${f.maker||"メーカー未設定"}<br>1日目安 ${target||0}g ・ 残り ${stock}g</div>
+      <div class="stock-meter"><div class="stock-meter-bar" style="width:${pct}%"></div></div>
+      <div class="food-stock-meta">目安あと ${days}日分${f.buyDate?` ・ 購入予定 ${f.buyDate}`:""}</div>
+      ${days<=3?'<div class="stock-alert">⚠️ フードの残量が少なくなっています</div>':""}
+      ${f.note?`<div class="food-stock-meta">📝 ${f.note}</div>`:""}
+    </div>`;
+  }
+
+  const meals=[...state.meals].filter(m=>m.petId===petId);
+  $("#mealList").innerHTML=meals.length?meals.map(m=>`<div class="item">
+    <div>
+      <b>${m.type} <span class="meal-item-amount">${m.amount}g</span></b>
+      <div class="meta">${m.date} ${m.time} ・ ${m.appetite}${m.memo?` ・ ${m.memo}`:""}</div>
+    </div>
+    <button class="text-btn" onclick="deleteMeal(${m.id})">削除</button>
+  </div>`).join(""):'<div class="empty">食事記録はまだありません 🥣</div>';
+}
+
+window.deleteMeal=id=>{
+  state.meals=state.meals.filter(m=>m.id!==id);
+  save();
+};
+
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood();
 }
 renderAll();
 

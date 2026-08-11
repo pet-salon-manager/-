@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v7</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v8</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -36,6 +36,7 @@
           <button class="quick card" data-go="places"><span>🗺️</span><b>お店</b><small>病院・トリミング</small></button>
           <button class="quick card" data-go="documents"><span>📄</span><b>書類</b><small>証明書・保険証</small></button>
           <button class="quick card" data-go="album"><span>📸</span><b>アルバム</b><small>成長・思い出</small></button>
+          <button class="quick card" data-go="food"><span>🍚</span><b>食事</b><small>フード・在庫</small></button>
           <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
@@ -163,7 +164,58 @@
 
       
       
-      <section id="album" class="screen">
+      
+      <section id="food" class="screen">
+        <div class="screen-head"><h2>🍚 食事・フード</h2><p>毎日のごはんと在庫をペットごとに管理</p></div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>いつものフード</h3><span class="summary-badge">ペット別</span></div>
+          <label>ペット<select id="foodPet"></select></label>
+          <label>フード名<input id="foodName" placeholder="例：チキン＆ライス"></label>
+          <label>メーカー<input id="foodMaker" placeholder="例：○○ペットフーズ"></label>
+          <label>1日の目安量（g）<input id="foodDailyTarget" type="number" step="1" placeholder="例：120"></label>
+          <label>在庫残量（g）<input id="foodStock" type="number" step="1" placeholder="例：1500"></label>
+          <label>購入予定日<input id="foodBuyDate" type="date"></label>
+          <label>メモ<textarea id="foodNote" placeholder="アレルギー、好み、ふやかす等"></textarea></label>
+          <button id="saveFoodProfileBtn" class="primary">🍽️ フード情報を保存</button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>今日の食事</h3><span id="todayFoodSummary" class="summary-badge">0g / 0g</span></div>
+          <label>食べた量（g）<input id="mealAmount" type="number" step="1" placeholder="例：60"></label>
+          <label>食事区分
+            <select id="mealType">
+              <option>🌅 朝</option>
+              <option>☀️ 昼</option>
+              <option>🌙 夜</option>
+              <option>🍪 おやつ</option>
+            </select>
+          </label>
+          <label>食欲
+            <select id="mealAppetite">
+              <option>完食</option>
+              <option>ほぼ完食</option>
+              <option>半分くらい</option>
+              <option>少しだけ</option>
+              <option>食べなかった</option>
+            </select>
+          </label>
+          <label>メモ<input id="mealMemo" placeholder="薬を混ぜた、少し残した等"></label>
+          <button id="saveMealBtn" class="primary">🥣 食事を記録</button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>在庫・購入</h3><button id="consumeStockBtn" class="soft-btn">今日分を在庫から引く</button></div>
+          <div id="foodStockCard"></div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>食事履歴</h3><button id="clearMealsBtn" class="text-btn">全削除</button></div>
+          <div id="mealList" class="list"></div>
+        </div>
+      </section>
+
+<section id="album" class="screen">
         <div class="screen-head"><h2>📸 成長アルバム</h2><p>写真・体重・思い出をペットごとに残す</p></div>
 
         <div class="card section-card">

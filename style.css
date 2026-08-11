@@ -408,3 +408,47 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
 @media(max-width:380px){
   .album-grid{grid-template-columns:1fr}
 }
+
+
+/* PawPal v8: food management */
+.food-stock-card{
+  padding:16px;
+  border-radius:20px;
+  background:linear-gradient(135deg,#fffaf0,#fff7fb);
+  border:1px solid #f0e4d7;
+}
+.food-stock-name{
+  font-size:18px;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.food-stock-meta{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.6;
+}
+.stock-meter{
+  height:12px;
+  border-radius:999px;
+  background:#f2e7df;
+  overflow:hidden;
+  margin:12px 0 8px;
+}
+.stock-meter-bar{
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#ffb46f,#ff87b4);
+}
+.stock-alert{
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#fff0f2;
+  color:#c45b6d;
+  font-size:12px;
+  font-weight:800;
+}
+.meal-item-amount{
+  font-weight:900;
+  color:#c55d8e;
+}
