@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v5.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v6</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -34,6 +34,8 @@
           <button class="quick card" data-go="health"><span>🩺</span><b>健康</b><small>体重・メモ</small></button>
           <button class="quick card" data-go="schedule"><span>📅</span><b>予定</b><small>薬・病院</small></button>
           <button class="quick card" data-go="places"><span>🗺️</span><b>お店</b><small>病院・トリミング</small></button>
+          <button class="quick card" data-go="documents"><span>📄</span><b>書類</b><small>証明書・保険証</small></button>
+          <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
         <div class="card section-card">
@@ -63,6 +65,7 @@
             </div>
           </div>
           <div id="petProfileBody"></div>
+          <button class="primary profile-doc-btn" data-go="documents">📄 この子の書類を見る</button>
         </div>
       </section>
 
@@ -157,7 +160,50 @@
         <div id="placeList" class="list"></div>
       </section>
 
-      <section id="products" class="screen">
+      
+      <section id="documents" class="screen">
+        <div class="screen-head"><h2>📄 書類</h2><p>証明書・保険証・検査結果をペットごとに保存</p></div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>書類を追加</h3><span class="summary-badge">端末内保存</span></div>
+          <label>ペット<select id="docPet"></select></label>
+          <label>種類
+            <select id="docType">
+              <option>💉 ワクチン証明書</option>
+              <option>🛡️ ペット保険証</option>
+              <option>🧪 検査結果</option>
+              <option>💊 処方箋・薬</option>
+              <option>🏥 診療明細</option>
+              <option>📋 その他</option>
+            </select>
+          </label>
+          <label>タイトル<input id="docTitle" placeholder="例：2026年 狂犬病予防接種証明書"></label>
+          <label>日付<input id="docDate" type="date"></label>
+          <label class="doc-file-label">
+            写真・PDF
+            <input id="docFile" type="file" accept="image/*,application/pdf">
+          </label>
+          <div id="docFileName" class="file-note">ファイル未選択</div>
+          <label>メモ<textarea id="docMemo" placeholder="有効期限、病院名、注意点など"></textarea></label>
+          <button id="saveDocBtn" class="primary">📎 書類を保存</button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title">
+            <h3>保存した書類</h3>
+            <select id="docFilter" class="mini-select">
+              <option value="all">すべて</option>
+              <option value="ワクチン">ワクチン</option>
+              <option value="保険">保険</option>
+              <option value="検査">検査</option>
+              <option value="処方">処方箋</option>
+            </select>
+          </div>
+          <div id="docList" class="doc-list"></div>
+        </div>
+      </section>
+
+<section id="products" class="screen">
         <div class="screen-head"><h2>🛍️ 商品</h2><p>JANコード・商品名から検索</p></div>
         <div class="card section-card">
           <label>JANコード<input id="janInput" inputmode="numeric" placeholder="例：4901234567890"></label>

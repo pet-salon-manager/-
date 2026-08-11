@@ -3,6 +3,65 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"activePet":null,"health":[],"events":[]}');
 
+const DOC_DB_NAME="PawPalDocuments";
+const DOC_DB_VERSION=1;
+const DOC_STORE="documents";
+
+function openDocDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DOC_DB_NAME,DOC_DB_VERSION);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(DOC_STORE)){
+        const store=db.createObjectStore(DOC_STORE,{keyPath:"id"});
+        store.createIndex("petId","petId",{unique:false});
+        store.createIndex("date","date",{unique:false});
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+
+async function putDocument(doc){
+  const db=await openDocDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DOC_STORE,"readwrite");
+    tx.objectStore(DOC_STORE).put(doc);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{db.close();reject(tx.error);};
+  });
+}
+
+async function getDocuments(){
+  const db=await openDocDB();
+  return new Promise((resolve,reject)=>{
+    const req=db.transaction(DOC_STORE,"readonly").objectStore(DOC_STORE).getAll();
+    req.onsuccess=()=>{db.close();resolve(req.result||[]);};
+    req.onerror=()=>{db.close();reject(req.error);};
+  });
+}
+
+async function getDocument(id){
+  const db=await openDocDB();
+  return new Promise((resolve,reject)=>{
+    const req=db.transaction(DOC_STORE,"readonly").objectStore(DOC_STORE).get(id);
+    req.onsuccess=()=>{db.close();resolve(req.result);};
+    req.onerror=()=>{db.close();reject(req.error);};
+  });
+}
+
+async function removeDocument(id){
+  const db=await openDocDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DOC_STORE,"readwrite");
+    tx.objectStore(DOC_STORE).delete(id);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{db.close();reject(tx.error);};
+  });
+}
+
+
 const places = [
   {name:"さくら動物病院", type:"病院", area:"東京都", emoji:"🏥", note:"一般診療・予防接種"},
   {name:"ハッピートリミング", type:"トリミング", area:"神奈川県", emoji:"✂️", note:"小型犬・猫対応"},
@@ -456,14 +515,146 @@ $("#themeBtn").onclick=()=>document.body.classList.toggle("alt");
 
 $("#notificationPermissionBtn").onclick=requestNotificationPermission;
 
+
+function renderDocPetOptions(){
+  const s=$("#docPet");
+  if(!s)return;
+  const cur=s.value;
+  s.innerHTML=state.pets.length
+    ? state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("")
+    : '<option value="">ペットを先に登録してください</option>';
+  if([...s.options].some(o=>o.value===cur))s.value=cur;
+  else if(activePet())s.value=String(activePet().id);
+}
+
+$("#docFile").onchange=()=>{
+  const f=$("#docFile").files?.[0];
+  $("#docFileName").textContent=f?`${f.name} ・ ${(f.size/1024/1024).toFixed(2)}MB`:"ファイル未選択";
+};
+
+$("#saveDocBtn").onclick=async()=>{
+  const p=activePet();
+  if(!state.pets.length){alert("先にペットを登録してください🐾");go("pets");return;}
+  const petId=Number($("#docPet").value);
+  const title=$("#docTitle").value.trim();
+  const file=$("#docFile").files?.[0];
+  if(!petId || !title || !file){
+    alert("ペット・タイトル・ファイルを選んでください📄");
+    return;
+  }
+  if(file.size > 15*1024*1024){
+    alert("1ファイル15MB以下にしてください。");
+    return;
+  }
+  const btn=$("#saveDocBtn");
+  btn.disabled=true;
+  btn.textContent="保存中…";
+  try{
+    await putDocument({
+      id:Date.now(),
+      petId,
+      type:$("#docType").value,
+      title,
+      date:$("#docDate").value || new Date().toISOString().slice(0,10),
+      memo:$("#docMemo").value.trim(),
+      fileName:file.name,
+      mime:file.type || "application/octet-stream",
+      size:file.size,
+      blob:file
+    });
+    $("#docTitle").value="";
+    $("#docMemo").value="";
+    $("#docFile").value="";
+    $("#docFileName").textContent="ファイル未選択";
+    await renderDocuments();
+    alert("書類を保存しました 📄✨");
+  }catch(e){
+    console.error(e);
+    alert("保存できませんでした。端末の空き容量を確認してください。");
+  }finally{
+    btn.disabled=false;
+    btn.textContent="📎 書類を保存";
+  }
+};
+
+$("#docFilter").onchange=()=>renderDocuments();
+
+async function renderDocuments(){
+  renderDocPetOptions();
+  const box=$("#docList");
+  if(!box)return;
+  if(!state.pets.length){
+    box.innerHTML='<div class="empty">ペットを登録すると書類を保存できます 📄</div>';
+    return;
+  }
+  box.innerHTML='<div class="empty">読み込み中…</div>';
+  try{
+    const all=await getDocuments();
+    const petId=activePet()?.id;
+    const filter=$("#docFilter")?.value || "all";
+    let docs=all.filter(d=>d.petId===petId);
+    if(filter!=="all") docs=docs.filter(d=>d.type.includes(filter));
+    docs.sort((a,b)=>(b.date||"").localeCompare(a.date||"") || b.id-a.id);
+
+    if(!docs.length){
+      box.innerHTML='<div class="empty">このペットの書類はまだありません 📄</div>';
+      return;
+    }
+
+    box.innerHTML="";
+    for(const d of docs){
+      const card=document.createElement("div");
+      card.className="doc-card";
+      let thumb=`<div class="doc-thumb">${d.mime?.startsWith("image/")?"🖼️":"📄"}</div>`;
+      if(d.mime?.startsWith("image/") && d.blob){
+        const url=URL.createObjectURL(d.blob);
+        thumb=`<div class="doc-thumb"><img src="${url}" alt=""></div>`;
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }
+      card.innerHTML=`${thumb}<div>
+        <b>${d.type} ${d.title}</b>
+        <div class="doc-meta">${d.date||"日付なし"} ・ ${(d.size/1024/1024).toFixed(2)}MB</div>
+        ${d.memo?`<div class="doc-meta">📝 ${d.memo}</div>`:""}
+        <div class="doc-actions">
+          <button class="doc-action" data-open="${d.id}">開く</button>
+          <button class="doc-action delete" data-delete="${d.id}">削除</button>
+        </div>
+      </div>`;
+      box.appendChild(card);
+    }
+
+    box.querySelectorAll("[data-open]").forEach(b=>b.onclick=async()=>{
+      const d=await getDocument(Number(b.dataset.open));
+      if(!d?.blob)return;
+      const url=URL.createObjectURL(d.blob);
+      window.open(url,"_blank");
+      setTimeout(()=>URL.revokeObjectURL(url),120000);
+    });
+
+    box.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{
+      const id=Number(b.dataset.delete);
+      const d=await getDocument(id);
+      if(!confirm(`${d?.title||"この書類"}を削除しますか？`))return;
+      await removeDocument(id);
+      await renderDocuments();
+    });
+  }catch(e){
+    console.error(e);
+    box.innerHTML='<div class="empty">書類を読み込めませんでした</div>';
+  }
+}
+
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments();
 }
 renderAll();
 
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 
 window.addEventListener("resize",()=>{ try{ renderHealth(); }catch(e){} });
+
+try{if($("#docDate")&&!$("#docDate").value)$("#docDate").value=new Date().toISOString().slice(0,10);}catch(e){}
