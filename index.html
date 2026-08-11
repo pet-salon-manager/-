@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v9</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v10</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -38,6 +38,7 @@
           <button class="quick card" data-go="album"><span>📸</span><b>アルバム</b><small>成長・思い出</small></button>
           <button class="quick card" data-go="food"><span>🍚</span><b>食事</b><small>フード・在庫</small></button>
           <button class="quick card" data-go="life"><span>🚶</span><b>生活</b><small>散歩・排泄・睡眠</small></button>
+          <button class="quick card emergency-quick" data-go="emergency"><span>🆘</span><b>緊急</b><small>病院ですぐ見せる</small></button>
           <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
@@ -166,7 +167,41 @@
       
       
       
-      <section id="life" class="screen">
+      
+      <section id="emergency" class="screen">
+        <div class="screen-head emergency-head"><h2>🆘 緊急モード</h2><p>病院や預け先で、必要な情報をすぐ確認</p></div>
+
+        <div class="card section-card emergency-card">
+          <div class="section-title"><h3>緊急プロフィール</h3><span class="summary-badge">ペット別</span></div>
+          <label>ペット<select id="emergencyPet"></select></label>
+          <div id="emergencyHero" class="emergency-hero"></div>
+
+          <div class="emergency-grid">
+            <label>血液型<input id="emergencyBlood" placeholder="例：DEA 1.1"></label>
+            <label>マイクロチップ番号<input id="emergencyChip" placeholder="15桁番号など"></label>
+          </div>
+
+          <label>アレルギー<textarea id="emergencyAllergy" placeholder="食物、薬、素材など"></textarea></label>
+          <label>持病・既往歴<textarea id="emergencyCondition" placeholder="心臓病、てんかん、手術歴など"></textarea></label>
+          <label>現在飲んでいる薬<textarea id="emergencyMedicine" placeholder="薬名・量・回数"></textarea></label>
+
+          <label>かかりつけ病院<input id="emergencyHospital" placeholder="例：○○動物病院"></label>
+          <div class="emergency-grid">
+            <label>病院電話<input id="emergencyHospitalPhone" type="tel" placeholder="例：03-1234-5678"></label>
+            <label>飼い主電話<input id="emergencyOwnerPhone" type="tel" placeholder="例：090-1234-5678"></label>
+          </div>
+
+          <label>その他の注意事項<textarea id="emergencyNote" placeholder="診察時に伝えたいこと、怖がり、噛む可能性など"></textarea></label>
+          <button id="saveEmergencyBtn" class="primary">🩺 緊急情報を保存</button>
+        </div>
+
+        <div class="card section-card emergency-display-card">
+          <div class="section-title"><h3>病院に見せる画面</h3><button id="toggleEmergencyViewBtn" class="danger-btn">全画面表示</button></div>
+          <div id="emergencyDisplay" class="emergency-display"></div>
+        </div>
+      </section>
+
+<section id="life" class="screen">
 <div class="screen-head"><h2>🚶 散歩・生活記録</h2><p>散歩・排泄・水分・睡眠をペットごとに記録</p></div>
 <div class="card section-card">
 <div class="section-title"><h3>生活記録を追加</h3><span class="summary-badge">ペット別</span></div>

@@ -459,3 +459,21 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
 .life-record-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.life-tag{display:inline-block;padding:4px 7px;border-radius:999px;background:#eef9f2;color:#4f8061;font-size:10px;font-weight:800}
 .life-warning{margin-top:10px;padding:10px 12px;border-radius:14px;background:#fff3f4;color:#bd5969;font-size:12px;font-weight:800}
 @media(max-width:380px){.life-grid,.life-summary{grid-template-columns:1fr}}
+
+.emergency-quick{background:linear-gradient(135deg,#fff3f5,#fff)}
+.emergency-head h2{color:#c94f63}
+.emergency-card{border-color:#f4d7dc}
+.emergency-hero{display:flex;align-items:center;gap:14px;padding:14px;border-radius:20px;background:linear-gradient(135deg,#fff4f6,#fffafd);margin:10px 0 14px}
+.emergency-hero-photo{width:82px;height:82px;border-radius:24px;object-fit:cover;background:#fff;display:flex;align-items:center;justify-content:center;font-size:40px}
+.emergency-hero-name{font-size:24px;font-weight:900}
+.emergency-hero-meta{font-size:12px;color:var(--muted);margin-top:4px}
+.emergency-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.emergency-display{display:flex;flex-direction:column;gap:10px}
+.emergency-display .em-box{padding:13px;border-radius:16px;background:#fff9fa;border:1px solid #f1dfe3}
+.emergency-display .em-box small{display:block;color:#9a747b;margin-bottom:4px}
+.emergency-display .em-box b{font-size:16px}
+.emergency-display .critical{background:#fff0f2;border-color:#ffd2da}
+.emergency-display .critical b{color:#b84358}
+.emergency-display .phone-link{display:inline-block;margin-top:6px;padding:8px 10px;border-radius:12px;background:#f3efff;color:#695ab4;text-decoration:none;font-weight:800;font-size:12px}
+.emergency-fullscreen{position:fixed!important;inset:0!important;z-index:9999!important;margin:0!important;border-radius:0!important;overflow:auto!important;background:white!important;padding:20px!important}
+@media(max-width:380px){.emergency-grid{grid-template-columns:1fr}}

@@ -2,6 +2,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"activePet":null,"health":[],"events":[]}');
+state.emergencyProfiles ||= [];
 state.lifeRecords ||= [];
 state.foodProfiles ||= []; state.meals ||= [];
 
@@ -988,11 +989,38 @@ $("#clearLifeBtn").onclick=()=>{const petId=currentLifePetId(),count=state.lifeR
 window.deleteLifeRecord=id=>{state.lifeRecords=state.lifeRecords.filter(x=>x.id!==id);save();};
 function renderLife(){renderLifePetOptions();const petId=currentLifePetId();if(!petId)return;const today=new Date().toISOString().slice(0,10),r=state.lifeRecords.find(x=>x.petId===petId&&x.date===today),summary=$("#lifeSummary"),score=$("#lifeScore");if(!r){score.textContent="記録なし";summary.innerHTML='<div class="empty">今日の記録を入れると、ここにまとめが表示されます 🌿</div>';}else{let p=0;if(r.walkMinutes>0)p++;if(r.water>0)p++;if(r.sleep>0)p++;if(r.pee>0)p++;if(["とても元気","元気","ふつう"].includes(r.mood))p++;score.textContent=`${p}/5`;const w=[];if(r.water===0)w.push("飲水量が未記録");if(r.pee===0)w.push("おしっこ0回");if(["下痢気味","気になる"].includes(r.poop))w.push(`うんち：${r.poop}`);if(["少し元気がない","心配"].includes(r.mood))w.push(`元気：${r.mood}`);summary.innerHTML=`<div class="life-summary-box"><small>🚶 散歩</small><b>${r.walkMinutes}分</b><div>${r.walkDistance}km</div></div><div class="life-summary-box"><small>💧 飲水</small><b>${r.water}ml</b></div><div class="life-summary-box"><small>😴 睡眠</small><b>${r.sleep}時間</b></div><div class="life-summary-box"><small>🚽 排泄</small><b>${r.pee}回</b><div>${r.poop}</div></div>${w.length?`<div class="life-warning">⚠️ ${w.join(" ・ ")}</div>`:""}`;}const a=[...state.lifeRecords].filter(x=>x.petId===petId).sort((a,b)=>b.date.localeCompare(a.date));$("#lifeList").innerHTML=a.length?a.map(r=>`<div class="item"><div><b>${r.date} ・ ${r.mood}</b><div class="life-record-tags"><span class="life-tag">🚶 ${r.walkMinutes}分</span><span class="life-tag">📏 ${r.walkDistance}km</span><span class="life-tag">💧 ${r.water}ml</span><span class="life-tag">😴 ${r.sleep}h</span><span class="life-tag">🚽 ${r.pee}回 / ${r.poop}</span></div>${r.memo?`<div class="meta">📝 ${r.memo}</div>`:""}</div><button class="text-btn" onclick="deleteLifeRecord(${r.id})">削除</button></div>`).join(""):'<div class="empty">生活記録はまだありません 🌿</div>';}
 
+
+function currentEmergencyPetId(){const s=$("#emergencyPet");return s?.value?Number(s.value):(activePet()?.id||null)}
+function renderEmergencyPetOptions(){const s=$("#emergencyPet");if(!s)return;const cur=s.value;s.innerHTML=state.pets.length?state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join(""):'<option value="">ペットを先に登録してください</option>';if([...s.options].some(o=>o.value===cur))s.value=cur;else if(activePet())s.value=String(activePet().id)}
+function calcPetAge(birthday){if(!birthday)return"年齢未設定";const b=new Date(birthday+"T00:00:00"),n=new Date();let y=n.getFullYear()-b.getFullYear();if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate()))y--;return`${Math.max(0,y)}歳`}
+function latestWeightForPet(petId){const a=state.health.filter(x=>x.petId===petId&&x.weight).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);return a[0]?.weight||""}
+function getEmergencyProfile(petId){return state.emergencyProfiles.find(x=>x.petId===petId)}
+
+function loadEmergencyForm(){
+  renderEmergencyPetOptions();const petId=currentEmergencyPetId(),e=getEmergencyProfile(petId);
+  $("#emergencyBlood").value=e?.blood||"";$("#emergencyChip").value=e?.chip||"";$("#emergencyAllergy").value=e?.allergy||"";$("#emergencyCondition").value=e?.condition||"";$("#emergencyMedicine").value=e?.medicine||"";$("#emergencyHospital").value=e?.hospital||"";$("#emergencyHospitalPhone").value=e?.hospitalPhone||"";$("#emergencyOwnerPhone").value=e?.ownerPhone||"";$("#emergencyNote").value=e?.note||"";
+}
+$("#emergencyPet").onchange=()=>{loadEmergencyForm();renderEmergency();};
+$("#saveEmergencyBtn").onclick=()=>{
+  if(!state.pets.length){alert("先にペットを登録してください🐾");go("pets");return;}
+  const petId=currentEmergencyPetId(),data={petId,blood:$("#emergencyBlood").value.trim(),chip:$("#emergencyChip").value.trim(),allergy:$("#emergencyAllergy").value.trim(),condition:$("#emergencyCondition").value.trim(),medicine:$("#emergencyMedicine").value.trim(),hospital:$("#emergencyHospital").value.trim(),hospitalPhone:$("#emergencyHospitalPhone").value.trim(),ownerPhone:$("#emergencyOwnerPhone").value.trim(),note:$("#emergencyNote").value.trim()};
+  const idx=state.emergencyProfiles.findIndex(x=>x.petId===petId);if(idx>=0)state.emergencyProfiles[idx]={...state.emergencyProfiles[idx],...data};else state.emergencyProfiles.push(data);save();alert("緊急情報を保存しました 🆘");
+};
+function renderEmergency(){
+  renderEmergencyPetOptions();const petId=currentEmergencyPetId(),p=state.pets.find(x=>x.id===petId);
+  if(!p){$("#emergencyHero").innerHTML='<div class="empty">ペットを登録してください</div>';$("#emergencyDisplay").innerHTML='<div class="empty">緊急情報はまだありません</div>';return;}
+  const e=getEmergencyProfile(petId)||{},weight=latestWeightForPet(petId),visual=p.photo?`<img class="emergency-hero-photo" src="${p.photo}" alt="${p.name}">`:`<div class="emergency-hero-photo">${petEmoji(p.type)}</div>`;
+  $("#emergencyHero").innerHTML=`${visual}<div><div class="emergency-hero-name">${p.name}</div><div class="emergency-hero-meta">${p.breed||p.type} ・ ${calcPetAge(p.birthday)}${weight?` ・ ${weight}kg`:""}</div></div>`;
+  const phoneLink=n=>n?`<a class="phone-link" href="tel:${n.replace(/[^0-9+]/g,"")}">📞 ${n}</a>`:"未設定";
+  $("#emergencyDisplay").innerHTML=`<div class="em-box"><small>ペット</small><b>${p.name} / ${p.breed||p.type}</b><div>${calcPetAge(p.birthday)}${weight?` ・ ${weight}kg`:""}</div></div><div class="em-box critical"><small>アレルギー</small><b>${e.allergy||"未設定"}</b></div><div class="em-box critical"><small>持病・既往歴</small><b>${e.condition||"未設定"}</b></div><div class="em-box critical"><small>現在の薬</small><b>${e.medicine||"未設定"}</b></div><div class="em-box"><small>血液型</small><b>${e.blood||"未設定"}</b></div><div class="em-box"><small>マイクロチップ</small><b>${e.chip||"未設定"}</b></div><div class="em-box"><small>かかりつけ病院</small><b>${e.hospital||"未設定"}</b><div>${phoneLink(e.hospitalPhone)}</div></div><div class="em-box"><small>飼い主連絡先</small><div>${phoneLink(e.ownerPhone)}</div></div><div class="em-box"><small>その他の注意事項</small><b>${e.note||"未設定"}</b></div>`;
+}
+$("#toggleEmergencyViewBtn").onclick=()=>{const card=document.querySelector(".emergency-display-card"),on=card.classList.toggle("emergency-fullscreen");$("#toggleEmergencyViewBtn").textContent=on?"閉じる":"全画面表示";if(on)window.scrollTo({top:0})};
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife(); renderEmergency();
 }
 renderAll();
 
@@ -1004,3 +1032,4 @@ try{if($("#docDate")&&!$("#docDate").value)$("#docDate").value=new Date().toISOS
 
 try{if($("#albumDate")&&!$("#albumDate").value)$("#albumDate").value=new Date().toISOString().slice(0,10);}catch(e){}
 try{if($("#lifeDate")&&!$("#lifeDate").value)$("#lifeDate").value=new Date().toISOString().slice(0,10);}catch(e){}
+try{loadEmergencyForm();}catch(e){}
