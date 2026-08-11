@@ -502,3 +502,20 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   margin-top:12px;padding:10px 12px;border-radius:13px;background:#fffaf0;
   color:#76665e;font-size:11px;line-height:1.5
 }
+
+/* PawPal v12: cloud sync & family sharing */
+.cloud-quick{background:linear-gradient(135deg,#f2f8ff,#fff)}
+.cloud-card{background:linear-gradient(135deg,#f7fbff,#fff)}
+.cloud-actions{display:flex;flex-direction:column;gap:10px}
+.soft-big-btn,.import-backup-label{
+  display:block;width:100%;border:0;border-radius:16px;padding:13px 16px;
+  background:#f1efff;color:#6758b5;font-weight:900;text-align:center
+}
+.import-backup-label{cursor:pointer}
+.cloud-message{
+  margin-top:12px;padding:12px;border-radius:14px;background:#f8fbff;
+  color:var(--muted);font-size:12px;line-height:1.55
+}
+.cloud-message.ok{background:#f2fff6;color:#4b7c5d}
+.cloud-message.error{background:#fff3f4;color:#b65366}
+.cloud-note{color:var(--muted);font-size:12px;line-height:1.5}

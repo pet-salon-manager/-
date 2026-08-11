@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v11</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v12</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -40,6 +40,7 @@
           <button class="quick card" data-go="life"><span>🚶</span><b>生活</b><small>散歩・排泄・睡眠</small></button>
           <button class="quick card emergency-quick" data-go="emergency"><span>🆘</span><b>緊急</b><small>病院ですぐ見せる</small></button>
           <button class="quick card ai-quick" data-go="assistant"><span>🤖</span><b>AI</b><small>記録をまとめる</small></button>
+          <button class="quick card cloud-quick" data-go="cloud"><span>☁️</span><b>クラウド</b><small>同期・家族共有</small></button>
           <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
@@ -170,7 +171,46 @@
       
       
       
-      <section id="assistant" class="screen">
+      
+      <section id="cloud" class="screen">
+        <div class="screen-head"><h2>☁️ クラウド・家族共有</h2><p>Supabaseへバックアップして家族で同じデータを使う準備</p></div>
+
+        <div class="card section-card cloud-card">
+          <div class="section-title"><h3>Supabase接続</h3><span id="cloudStatusBadge" class="summary-badge">未接続</span></div>
+          <label>Project URL<input id="supabaseUrl" placeholder="https://xxxxx.supabase.co"></label>
+          <label>Anon Key<input id="supabaseAnonKey" type="password" placeholder="公開用 anon key"></label>
+          <button id="saveCloudSettingsBtn" class="primary">🔐 接続設定を保存</button>
+          <div class="storage-note">Anon KeyはSupabaseの公開用キーです。Service Role KeyやAIの秘密鍵はここに入れないでください。</div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>家族スペース</h3><span class="summary-badge">共有コード方式</span></div>
+          <label>家族スペース名<input id="familyName" placeholder="例：ココ家族"></label>
+          <label>共有コード<input id="familyCode" placeholder="8文字以上の合言葉"></label>
+          <button id="saveFamilyBtn" class="primary">👨‍👩‍👧 家族スペースを保存</button>
+          <div class="storage-note">同じSupabase設定と共有コードを家族の端末で入力すると、同じバックアップ領域を使えるようにします。</div>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>クラウド同期</h3><span id="lastSyncText" class="summary-badge">未同期</span></div>
+          <div class="cloud-actions">
+            <button id="cloudBackupBtn" class="primary">⬆️ クラウドへバックアップ</button>
+            <button id="cloudRestoreBtn" class="soft-big-btn">⬇️ クラウドから復元</button>
+          </div>
+          <div id="cloudMessage" class="cloud-message">接続設定と家族スペースを保存すると利用できます。</div>
+        </div>
+
+        <div class="card section-card">
+          <h3>端末バックアップ</h3>
+          <p class="cloud-note">Supabaseをまだ設定していなくても、JSONファイルでバックアップできます。</p>
+          <div class="cloud-actions">
+            <button id="exportBackupBtn" class="soft-big-btn">📤 バックアップを書き出す</button>
+            <label class="import-backup-label">📥 バックアップを読み込む<input id="importBackupFile" type="file" accept="application/json" hidden></label>
+          </div>
+        </div>
+      </section>
+
+<section id="assistant" class="screen">
         <div class="screen-head"><h2>🤖 AIペットアシスタント</h2><p>記録を読み取って、今の様子をわかりやすく整理</p></div>
 
         <div class="card section-card ai-card">

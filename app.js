@@ -1147,11 +1147,153 @@ $$(".ai-chip").forEach(b=>b.onclick=()=>{const q=b.dataset.aiq;$("#assistantQues
 $("#askAssistantBtn").onclick=()=>{const q=$("#assistantQuestion").value.trim();answerAssistant(q||"summary");};
 $("#clearAssistantBtn").onclick=()=>{$("#assistantQuestion").value="";$("#assistantAnswer").innerHTML='<div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>';};
 
+
+const CLOUD_SETTINGS_KEY="pawpalCloudSettings";
+function getCloudSettings(){
+  try{return JSON.parse(localStorage.getItem(CLOUD_SETTINGS_KEY)||"{}")}catch{return{}}
+}
+function setCloudSettings(v){
+  localStorage.setItem(CLOUD_SETTINGS_KEY,JSON.stringify(v));
+}
+async function sha256(text){
+  const data=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest("SHA-256",data);
+  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function renderCloudSettings(){
+  const s=getCloudSettings();
+  if($("#supabaseUrl"))$("#supabaseUrl").value=s.url||"";
+  if($("#supabaseAnonKey"))$("#supabaseAnonKey").value=s.anonKey||"";
+  if($("#familyName"))$("#familyName").value=s.familyName||"";
+  if($("#familyCode"))$("#familyCode").value=s.familyCode||"";
+  if($("#lastSyncText"))$("#lastSyncText").textContent=s.lastSync?`最終 ${s.lastSync}`:"未同期";
+  if($("#cloudStatusBadge"))$("#cloudStatusBadge").textContent=(s.url&&s.anonKey&&s.familyCode)?"設定済み":"未接続";
+}
+function cloudMessage(text,type=""){
+  const el=$("#cloudMessage");if(!el)return;
+  el.className="cloud-message"+(type?` ${type}`:"");
+  el.textContent=text;
+}
+$("#saveCloudSettingsBtn").onclick=()=>{
+  const url=$("#supabaseUrl").value.trim().replace(/\/+$/,"");
+  const anonKey=$("#supabaseAnonKey").value.trim();
+  if(!url||!anonKey){alert("Project URLとAnon Keyを入力してください");return;}
+  const s=getCloudSettings();setCloudSettings({...s,url,anonKey});renderCloudSettings();cloudMessage("Supabase接続設定を保存しました。","ok");
+};
+$("#saveFamilyBtn").onclick=()=>{
+  const familyName=$("#familyName").value.trim(),familyCode=$("#familyCode").value.trim();
+  if(!familyName||familyCode.length<8){alert("家族スペース名と8文字以上の共有コードを入力してください");return;}
+  const s=getCloudSettings();setCloudSettings({...s,familyName,familyCode});renderCloudSettings();cloudMessage("家族スペースを保存しました。","ok");
+};
+
+async function buildBackupPayload(){
+  let docsMeta=[],albumMeta=[];
+  try{
+    const docs=await getDocuments();
+    docsMeta=docs.map(d=>({id:d.id,petId:d.petId,type:d.type,title:d.title,date:d.date,memo:d.memo,fileName:d.fileName,mime:d.mime,size:d.size}));
+  }catch(_){}
+  try{
+    const albums=await getAlbumItems();
+    albumMeta=albums.map(a=>({id:a.id,petId:a.petId,date:a.date,weight:a.weight,memo:a.memo}));
+  }catch(_){}
+  return {
+    version:12,
+    exportedAt:new Date().toISOString(),
+    pawpalState:state,
+    documentMetadata:docsMeta,
+    albumMetadata:albumMeta
+  };
+}
+
+async function cloudIdentity(){
+  const s=getCloudSettings();
+  if(!s.url||!s.anonKey||!s.familyCode)throw new Error("Supabase設定と家族共有コードを保存してください");
+  return {s,familyId:await sha256("pawpal-family:"+s.familyCode)};
+}
+
+async function supabaseRequest(path,options={}){
+  const {s}=await cloudIdentity();
+  const headers={
+    "apikey":s.anonKey,
+    "Authorization":`Bearer ${s.anonKey}`,
+    "Content-Type":"application/json",
+    ...(options.headers||{})
+  };
+  const res=await fetch(`${s.url}/rest/v1/${path}`,{...options,headers});
+  if(!res.ok){
+    const text=await res.text();
+    throw new Error(text||`HTTP ${res.status}`);
+  }
+  const txt=await res.text();
+  return txt?JSON.parse(txt):null;
+}
+
+$("#cloudBackupBtn").onclick=async()=>{
+  const btn=$("#cloudBackupBtn");btn.disabled=true;btn.textContent="バックアップ中…";
+  try{
+    const {s,familyId}=await cloudIdentity();
+    const payload=await buildBackupPayload();
+    await supabaseRequest("pawpal_backups?on_conflict=family_id",{
+      method:"POST",
+      headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify({family_id:familyId,family_name:s.familyName||"",payload,updated_at:new Date().toISOString()})
+    });
+    const now=new Date().toLocaleString("ja-JP");
+    setCloudSettings({...s,lastSync:now});
+    renderCloudSettings();cloudMessage("クラウドへのバックアップが完了しました ☁️","ok");
+  }catch(e){
+    console.error(e);cloudMessage("バックアップできませんでした。Supabase設定とSQLセットアップを確認してください。","error");
+  }finally{btn.disabled=false;btn.textContent="⬆️ クラウドへバックアップ";}
+};
+
+$("#cloudRestoreBtn").onclick=async()=>{
+  if(!confirm("クラウドのデータでこの端末のPawPalデータを置き換えますか？"))return;
+  const btn=$("#cloudRestoreBtn");btn.disabled=true;btn.textContent="復元中…";
+  try{
+    const {s,familyId}=await cloudIdentity();
+    const rows=await supabaseRequest(`pawpal_backups?family_id=eq.${familyId}&select=payload,updated_at&limit=1`,{method:"GET"});
+    if(!rows?.length)throw new Error("バックアップが見つかりません");
+    const payload=rows[0].payload;
+    if(!payload?.pawpalState)throw new Error("バックアップ形式が不正です");
+    localStorage.setItem("pawpalState",JSON.stringify(payload.pawpalState));
+    setCloudSettings({...s,lastSync:new Date().toLocaleString("ja-JP")});
+    cloudMessage("復元しました。画面を再読み込みします。","ok");
+    setTimeout(()=>location.reload(),700);
+  }catch(e){
+    console.error(e);cloudMessage("復元できませんでした。バックアップがあるか確認してください。","error");
+  }finally{btn.disabled=false;btn.textContent="⬇️ クラウドから復元";}
+};
+
+$("#exportBackupBtn").onclick=async()=>{
+  try{
+    const payload=await buildBackupPayload();
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`PawPal_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  }catch{alert("バックアップを書き出せませんでした");}
+};
+
+$("#importBackupFile").onchange=async(e)=>{
+  const file=e.target.files?.[0];if(!file)return;
+  if(!confirm("このバックアップで現在の端末データを置き換えますか？")){e.target.value="";return;}
+  try{
+    const payload=JSON.parse(await file.text());
+    if(!payload?.pawpalState)throw new Error("invalid");
+    localStorage.setItem("pawpalState",JSON.stringify(payload.pawpalState));
+    alert("バックアップを読み込みました。再読み込みします。");
+    location.reload();
+  }catch{alert("PawPalのバックアップファイルではありません");}
+};
+
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife(); renderEmergency(); renderAssistantInsights();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife(); renderEmergency(); renderAssistantInsights(); renderCloudSettings();
 }
 renderAll();
 
