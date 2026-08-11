@@ -755,10 +755,15 @@ function openPlaceDetail(id){
   $("#placeDetailEmoji").textContent=p.emoji;
   $("#placeDetailName").textContent=p.name;
   $("#placeDetailMeta").textContent=`${p.area} ${p.city||""} ・ ${p.type}`;
+  const homepageHtml=p.url
+    ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.url)}</a>`
+    : "ホームページ情報なし";
+
   $("#placeDetailBody").innerHTML=`
-    <b>${escapeHtml(p.note)}</b><br>
-    📍 ${escapeHtml(p.address||p.area)}<br>
-    🕒 ${escapeHtml(p.hours||"営業時間未登録")}
+    <b>${escapeHtml(p.note||p.type)}</b><br>
+    📍 住所：${escapeHtml(p.address||"住所情報なし")}<br>
+    🌐 ホームページ：${homepageHtml}<br>
+    🕒 営業時間：${escapeHtml(p.hours||"営業時間未登録")}
     ${Number.isFinite(p.distance)?`<br>📏 現在地から約 ${p.distance.toFixed(1)} km`:""}
     ${p.source?`<div class="place-source">データ: OpenStreetMap contributors</div>`:""}
   `;
