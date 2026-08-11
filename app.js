@@ -1175,10 +1175,21 @@ function familyMessage(text,type=""){
   const el=$("#familyMessage");if(!el)return;
   el.className="cloud-message"+(type?` ${type}`:"");el.textContent=text;
 }
+function normalizeSupabaseUrl(raw){
+  let u=(raw||"").trim();
+  if(!u)return "";
+  u=u.replace(/\/+$/,"");
+  u=u.replace(/\/rest\/v1$/i,"");
+  u=u.replace(/\/auth\/v1$/i,"");
+  u=u.replace(/\/functions\/v1$/i,"");
+  return u;
+}
 function supabaseBase(){
   const s=getCloudSettings();
-  if(!s.url||!s.anonKey)throw new Error("SupabaseのProject URLとAnon Keyを保存してください");
-  return s;
+  const url=normalizeSupabaseUrl(s.url);
+  if(!url||!s.anonKey)throw new Error("SupabaseのProject URLとAnon Keyを保存してください");
+  if(url!==s.url)setCloudSettings({...s,url});
+  return {...s,url};
 }
 async function authFetch(path,options={}){
   const s=supabaseBase();
@@ -1202,7 +1213,7 @@ async function restFetch(path,options={}){
   const txt=await res.text();
   let data=null;try{data=txt?JSON.parse(txt):null}catch{data=txt}
   if(res.status===401){
-    setAuthSession(null);renderCloudSettings();throw new Error("ログインの有効期限が切れました。もう一度ログインしてください");
+    throw new Error("認証に失敗しました。いったんログアウトして、もう一度ログインしてください");
   }
   if(!res.ok)throw new Error(data?.message||data?.hint||data?.details||`HTTP ${res.status}`);
   return data;
@@ -1218,7 +1229,10 @@ async function refreshSessionIfNeeded(){
     });
     const next={...data,expires_at:Math.floor(Date.now()/1000)+Number(data.expires_in||3600)};
     setAuthSession(next);return next;
-  }catch{setAuthSession(null);return null}
+  }catch(e){
+    console.warn("session refresh failed",e);
+    return session;
+  }
 }
 function renderCloudSettings(){
   const s=getCloudSettings(),session=getAuthSession();
@@ -1237,9 +1251,9 @@ function renderCloudSettings(){
   if($("#currentFamilyName"))$("#currentFamilyName").textContent=s.familyName||"";
 }
 $("#saveCloudSettingsBtn").onclick=()=>{
-  const url=$("#supabaseUrl").value.trim().replace(/\/+$/,""),anonKey=$("#supabaseAnonKey").value.trim();
+  const url=normalizeSupabaseUrl($("#supabaseUrl").value),anonKey=$("#supabaseAnonKey").value.trim();
   if(!url||!anonKey){alert("Project URLとAnon Keyを入力してください");return}
-  const s=getCloudSettings();setCloudSettings({...s,url,anonKey});renderCloudSettings();cloudMessage("Supabase接続設定を保存しました。","ok");
+  const s=getCloudSettings();setCloudSettings({...s,url,anonKey});renderCloudSettings();cloudMessage(`Supabase接続設定を保存しました：${url}`,"ok");
 };
 $("#signupBtn").onclick=async()=>{
   const email=$("#authEmail").value.trim(),password=$("#authPassword").value;
