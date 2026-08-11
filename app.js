@@ -115,13 +115,140 @@ async function removeAlbumItem(id){
 
 
 
-const places = [
+const samplePlaces = [
   {id:"sakura-vet",name:"さくら動物病院",type:"病院",area:"東京都",city:"世田谷区",emoji:"🏥",note:"一般診療・予防接種",hours:"9:00〜12:00 / 16:00〜19:00",phone:"0312345678",address:"東京都世田谷区（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("さくら動物病院 東京都")},
   {id:"happy-trim",name:"ハッピートリミング",type:"トリミング",area:"神奈川県",city:"横浜市",emoji:"✂️",note:"小型犬・猫対応",hours:"10:00〜18:00",phone:"0451234567",address:"神奈川県横浜市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("ハッピートリミング 神奈川県")},
   {id:"sunny-hotel",name:"わんこホテル Sunny",type:"ホテル",area:"静岡県",city:"静岡市",emoji:"🏨",note:"一時預かり・宿泊",hours:"8:00〜20:00",phone:"0541234567",address:"静岡県静岡市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("わんこホテル Sunny 静岡県")},
   {id:"midori-vet",name:"みどり動物クリニック",type:"病院",area:"山梨県",city:"甲府市",emoji:"🏥",note:"犬・猫・小動物",hours:"9:00〜18:00",phone:"0551234567",address:"山梨県甲府市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("みどり動物クリニック 山梨県")},
   {id:"paw-spa",name:"Paw Spa",type:"トリミング",area:"長野県",city:"長野市",emoji:"🫧",note:"シャンプー・カット",hours:"10:00〜18:00",phone:"0261234567",address:"長野県長野市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("Paw Spa 長野県")}
 ];
+let places = [...samplePlaces];
+let nearbyPlacesLoaded = false;
+let nearbyPlacesLoading = false;
+let nearbyUserLocation = null;
+
+function distanceKm(lat1, lon1, lat2, lon2){
+  const R=6371, rad=v=>v*Math.PI/180;
+  const dLat=rad(lat2-lat1), dLon=rad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function osmPlaceType(tags={}){
+  if(tags.amenity==="veterinary") return {type:"病院",emoji:"🏥",note:"動物病院"};
+  if(tags.shop==="pet_grooming") return {type:"トリミング",emoji:"✂️",note:"トリミング"};
+  if(tags.amenity==="animal_boarding") return {type:"ホテル",emoji:"🏨",note:"ペットホテル・預かり"};
+  return null;
+}
+
+function osmAddress(tags={}){
+  return [
+    tags["addr:province"]||tags["addr:state"],
+    tags["addr:city"]||tags["addr:town"]||tags["addr:village"],
+    tags["addr:suburb"],
+    tags["addr:street"],
+    tags["addr:housenumber"]
+  ].filter(Boolean).join(" ");
+}
+
+function osmElementToPlace(el){
+  const tags=el.tags||{};
+  const kind=osmPlaceType(tags);
+  if(!kind) return null;
+  const lat=Number(el.lat ?? el.center?.lat);
+  const lon=Number(el.lon ?? el.center?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)) return null;
+  const d=nearbyUserLocation ? distanceKm(nearbyUserLocation.lat,nearbyUserLocation.lon,lat,lon) : null;
+  return {
+    id:`osm-${el.type}-${el.id}`,
+    name:tags.name||tags["name:ja"]||`${kind.note}（名称未登録）`,
+    type:kind.type,
+    area:tags["addr:province"]||tags["addr:state"]||"",
+    city:tags["addr:city"]||tags["addr:town"]||tags["addr:village"]||"",
+    emoji:kind.emoji,
+    note:tags.description||kind.note,
+    hours:tags.opening_hours||"営業時間未登録",
+    phone:tags.phone||tags["contact:phone"]||"",
+    address:osmAddress(tags)||"住所情報なし",
+    url:tags.website||tags["contact:website"]||"",
+    lat,lon,distance:d,
+    source:"OpenStreetMap"
+  };
+}
+
+async function fetchNearbyPlaces(lat,lon){
+  const radius=15000;
+  const query=`[out:json][timeout:20];
+(
+  nwr(around:${radius},${lat},${lon})["amenity"="veterinary"];
+  nwr(around:${radius},${lat},${lon})["shop"="pet_grooming"];
+  nwr(around:${radius},${lat},${lon})["amenity"="animal_boarding"];
+);
+out center tags;`;
+  const endpoints=[
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
+  ];
+  let lastError=null;
+  for(const endpoint of endpoints){
+    try{
+      const res=await fetch(endpoint,{
+        method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+        body:"data="+encodeURIComponent(query)
+      });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data=await res.json();
+      return (data.elements||[]).map(osmElementToPlace).filter(Boolean);
+    }catch(e){ lastError=e; }
+  }
+  throw lastError||new Error("検索に失敗しました");
+}
+
+function getBrowserLocation(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation) return reject(new Error("位置情報に対応していません"));
+    navigator.geolocation.getCurrentPosition(
+      p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),
+      reject,
+      {enableHighAccuracy:true,timeout:12000,maximumAge:60000}
+    );
+  });
+}
+
+async function ensureNearbyPlaces(force=false){
+  if(nearbyPlacesLoading || (nearbyPlacesLoaded && !force)) return;
+  nearbyPlacesLoading=true;
+  const status=$("#nearbyPlaceStatus");
+  if(status) status.textContent="📍 現在地を確認しています…";
+  try{
+    nearbyUserLocation=await getBrowserLocation();
+    if(status) status.textContent="🔎 現在地の近くのお店を検索しています…";
+    const found=await fetchNearbyPlaces(nearbyUserLocation.lat,nearbyUserLocation.lon);
+    const uniq=[...new Map(found.map(x=>[x.id,x])).values()];
+    uniq.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
+    if(uniq.length){
+      places=uniq;
+      nearbyPlacesLoaded=true;
+      if(status) status.innerHTML=`📍 現在地から約15km以内を近い順に表示中：<b>${uniq.length}件</b>`;
+    }else{
+      places=[...samplePlaces];
+      if(status) status.textContent="近くのお店が見つからなかったため、サンプルを表示しています。";
+    }
+    renderPlaces();
+  }catch(e){
+    console.warn("nearby places",e);
+    places=[...samplePlaces];
+    if(status){
+      status.textContent=e?.code===1
+        ?"位置情報が許可されていません。Safariで位置情報を許可すると近い順に表示できます。"
+        :"現在地検索に失敗したため、サンプルを表示しています。";
+    }
+    renderPlaces();
+  }finally{
+    nearbyPlacesLoading=false;
+  }
+}
 
 const sampleProducts = [
   {jan:"4901234567890",name:"やさしいチキンフード",maker:"Paw Foods",type:"フード"},
@@ -150,6 +277,7 @@ function go(screen){
   $$(".screen").forEach(x=>x.classList.toggle("active", x.id===screen));
   $$(".nav-btn").forEach(x=>x.classList.toggle("active", x.dataset.screen===screen));
   window.scrollTo({top:0,behavior:"smooth"});
+  if(screen==="places") setTimeout(()=>ensureNearbyPlaces(false),0);
 }
 $$(".nav-btn").forEach(b=>b.onclick=()=>go(b.dataset.screen));
 $$("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
@@ -584,7 +712,8 @@ function renderPlaces(){
           <div class="place-card-emoji">${x.emoji}</div>
           <div>
             <div class="place-card-name">${escapeHtml(x.name)}</div>
-            <div class="place-card-meta">${escapeHtml(x.area)} ・ ${escapeHtml(x.note)}</div>
+            <div class="place-card-meta">${escapeHtml(x.area||x.city||"地域未登録")} ・ ${escapeHtml(x.note)}</div>
+            ${Number.isFinite(x.distance)?`<div class="place-distance">📏 約 ${x.distance.toFixed(1)} km</div>`:""}
             <div class="place-card-badges">
               <span class="place-badge">${escapeHtml(x.type)}</span>
               ${pref.favorite?'<span class="place-badge favorite">❤️ お気に入り</span>':""}
@@ -630,11 +759,15 @@ function openPlaceDetail(id){
     <b>${escapeHtml(p.note)}</b><br>
     📍 ${escapeHtml(p.address||p.area)}<br>
     🕒 ${escapeHtml(p.hours||"営業時間未登録")}
+    ${Number.isFinite(p.distance)?`<br>📏 現在地から約 ${p.distance.toFixed(1)} km`:""}
+    ${p.source?`<div class="place-source">データ: OpenStreetMap contributors</div>`:""}
   `;
 
   $("#placePhoneBtn").href=p.phone?`tel:${p.phone}`:"#";
   $("#placePhoneBtn").style.display=p.phone?"":"none";
-  $("#placeMapBtn").href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+" "+p.area+" "+(p.city||""))}`;
+  $("#placeMapBtn").href=(Number.isFinite(p.lat)&&Number.isFinite(p.lon))
+    ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+" "+p.area+" "+(p.city||""))}`;
   $("#placeWebBtn").href=p.url||"#";
   $("#placeWebBtn").style.display=p.url?"":"none";
 
@@ -655,12 +788,7 @@ function closePlaceDetail(){
 window.openPlaceDetail=openPlaceDetail;
 
 $("#placeSearch").oninput=renderPlaces;
-$("#searchNearbyPlacesBtn").onclick=()=>{
-  const q=($("#placeSearch")?.value||"").trim();
-  const kind=placeFilter!=="すべて"&&placeFilter!=="お気に入り"?placeFilter:"ペット";
-  const term=q?`${q} ${kind}`:`${kind} 動物病院 トリミング ペットホテル`;
-  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(term)}`,"_blank","noopener");
-};
+$("#searchNearbyPlacesBtn").onclick=()=>ensureNearbyPlaces(true);
 document.querySelectorAll(".place-filter").forEach(c=>{
   c.onclick=()=>{
     document.querySelectorAll(".place-filter").forEach(x=>x.classList.remove("active"));

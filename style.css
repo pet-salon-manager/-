@@ -845,3 +845,8 @@ button, a, [data-go], .nav-btn, .place-card, .chip {
   -webkit-tap-highlight-color: rgba(0,0,0,0.06);
 }
 button, .nav-btn, [data-go] { pointer-events:auto; }
+
+/* PawPal v18.6 nearby places */
+.place-distance{font-size:11px;font-weight:800;color:#c15f8e;margin-top:5px}
+.place-source{font-size:9px;color:#9b8c98;margin-top:7px}
+#nearbyPlaceStatus{margin:0 0 12px}
