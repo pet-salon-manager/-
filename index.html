@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.4</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.5</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -155,58 +155,28 @@
 </section>
 
       
-      
       <section id="places" class="screen">
         <div class="screen-head">
           <h2>🗺️ お店</h2>
-          <p>全国の動物病院・トリミング・ペットホテルを探す</p>
+          <p>動物病院・トリミング・ホテルを探して、自分用に管理</p>
         </div>
 
-        <div class="card section-card">
-          <div class="section-title">
-            <h3>📍 周辺から探す</h3>
-            <span id="nearbyStatusBadge" class="summary-badge">未検索</span>
-          </div>
-          <button id="searchNearbyPlacesBtn" class="primary">📍 現在地の近くを検索</button>
-          <div class="cloud-note">位置情報は検索時だけ使います。端末の正確な住所はPawPalに保存しません。</div>
+        <div class="searchbar">
+          <input id="placeSearch" placeholder="店名・地域・種類で検索">
+          <span>🔎</span>
         </div>
 
-        <div class="card section-card">
-          <div class="section-title">
-            <h3>🗾 地域から探す</h3>
-            <span class="summary-badge">全国対応</span>
-          </div>
-          <div class="region-search-row">
-            <input id="placeRegionInput" placeholder="例：静岡県、甲府市、世田谷区">
-            <button id="searchRegionPlacesBtn" class="secondary">検索</button>
-          </div>
-          <div id="regionSearchMessage" class="result-box">都道府県名や市区町村名を入力してください。</div>
+        <button id="searchNearbyPlacesBtn" type="button" class="primary" style="width:100%;margin:10px 0 14px">🗾 全国のお店を地図で検索</button>
+
+        <div class="chips place-chips">
+          <button class="chip place-filter active" data-filter="すべて">すべて</button>
+          <button class="chip place-filter" data-filter="病院">🏥 病院</button>
+          <button class="chip place-filter" data-filter="トリミング">✂️ トリミング</button>
+          <button class="chip place-filter" data-filter="ホテル">🏨 ホテル</button>
+          <button class="chip place-filter" data-filter="お気に入り">❤️ お気に入り</button>
         </div>
 
-        <div class="card section-card">
-          <div class="searchbar">
-            <input id="placeSearch" placeholder="店名・地域・種類で絞り込み">
-            <span>🔎</span>
-          </div>
-
-          <div class="chips place-chips">
-            <button class="chip place-filter active" data-filter="すべて">すべて</button>
-            <button class="chip place-filter" data-filter="病院">🏥 病院</button>
-            <button class="chip place-filter" data-filter="トリミング">✂️ トリミング</button>
-            <button class="chip place-filter" data-filter="ホテル">🏨 ホテル</button>
-            <button class="chip place-filter" data-filter="お気に入り">❤️ お気に入り</button>
-          </div>
-
-          <label>並び順
-            <select id="placeSort">
-              <option value="distance">現在地から近い順</option>
-              <option value="name">名前順</option>
-            </select>
-          </label>
-
-          <div id="placeSearchInfo" class="result-box">まず「現在地の近くを検索」または地域検索をしてください。</div>
-          <div id="placeList" class="place-list"></div>
-        </div>
+        <div id="placeList" class="place-list"></div>
 
         <div class="card section-card">
           <div class="section-title">
@@ -216,7 +186,6 @@
           <div id="placeMemoList" class="list"></div>
         </div>
       </section>
-
 
 
       
@@ -709,6 +678,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=18.5"></script>
 </body>
 </html>

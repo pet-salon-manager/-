@@ -115,200 +115,476 @@ async function removeAlbumItem(id){
 
 
 
+const places = [
+  {id:"sakura-vet",name:"さくら動物病院",type:"病院",area:"東京都",city:"世田谷区",emoji:"🏥",note:"一般診療・予防接種",hours:"9:00〜12:00 / 16:00〜19:00",phone:"0312345678",address:"東京都世田谷区（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("さくら動物病院 東京都")},
+  {id:"happy-trim",name:"ハッピートリミング",type:"トリミング",area:"神奈川県",city:"横浜市",emoji:"✂️",note:"小型犬・猫対応",hours:"10:00〜18:00",phone:"0451234567",address:"神奈川県横浜市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("ハッピートリミング 神奈川県")},
+  {id:"sunny-hotel",name:"わんこホテル Sunny",type:"ホテル",area:"静岡県",city:"静岡市",emoji:"🏨",note:"一時預かり・宿泊",hours:"8:00〜20:00",phone:"0541234567",address:"静岡県静岡市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("わんこホテル Sunny 静岡県")},
+  {id:"midori-vet",name:"みどり動物クリニック",type:"病院",area:"山梨県",city:"甲府市",emoji:"🏥",note:"犬・猫・小動物",hours:"9:00〜18:00",phone:"0551234567",address:"山梨県甲府市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("みどり動物クリニック 山梨県")},
+  {id:"paw-spa",name:"Paw Spa",type:"トリミング",area:"長野県",city:"長野市",emoji:"🫧",note:"シャンプー・カット",hours:"10:00〜18:00",phone:"0261234567",address:"長野県長野市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("Paw Spa 長野県")}
+];
 
-let places=[];
+const sampleProducts = [
+  {jan:"4901234567890",name:"やさしいチキンフード",maker:"Paw Foods",type:"フード"},
+  {jan:"4909876543210",name:"歯みがきガム",maker:"Happy Pet",type:"ケア用品"},
+  {jan:"4987654321098",name:"肉球ケアクリーム",maker:"Mofu Lab",type:"ケア用品"},
+  {jan:"4977777777777",name:"ふわふわ猫じゃらし",maker:"Nyan Works",type:"おもちゃ"}
+];
+if(!state.products.length){
+  state.products = sampleProducts.map((p,i)=>({
+    id:Date.now()+i,
+    ...p,
+    url:"",
+    memo:"サンプル商品",
+    favorite:false,
+    createdAt:Date.now()+i
+  }));
+  localStorage.setItem("pawpalState",JSON.stringify(state));
+}
+
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
+function save(){ localStorage.setItem("pawpalState", JSON.stringify(state)); renderAll(); }
+function petEmoji(type){ return type.includes("猫")?"🐱":type.includes("うさぎ")?"🐰":type.includes("鳥")?"🐦":type.includes("小動物")?"🐹":type.includes("犬")?"🐶":"🐾"; }
+function activePet(){ return state.pets.find(p=>p.id===state.activePet) || state.pets[0]; }
+
+function go(screen){
+  $$(".screen").forEach(x=>x.classList.toggle("active", x.id===screen));
+  $$(".nav-btn").forEach(x=>x.classList.toggle("active", x.dataset.screen===screen));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$$(".nav-btn").forEach(b=>b.onclick=()=>go(b.dataset.screen));
+$$("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+
+let editingPetId = null;
+let pendingPhoto = "";
+
+function openPetDialog(p=null){
+  editingPetId = p ? p.id : null;
+  $("#petDialogTitle").textContent = p ? "✏️ プロフィール編集" : "🐾 ペットを登録";
+  $("#petName").value = p?.name || "";
+  $("#petType").value = p?.type || "🐶 犬";
+  $("#petBirthday").value = p?.birthday || "";
+  $("#petBreed").value = p?.breed || "";
+  $("#petSex").value = p?.sex || "";
+  $("#petNote").value = p?.note || "";
+  pendingPhoto = p?.photo || "";
+  renderPhotoPreview();
+  $("#petDialog").showModal();
+}
+
+function renderPhotoPreview(){
+  const box=$("#petPhotoPreview");
+  if(pendingPhoto){
+    box.innerHTML=`<img src="${pendingPhoto}" alt="ペット写真">`;
+  }else{
+    box.textContent=petEmoji($("#petType").value);
+  }
+}
+
+function resizeImage(file, maxSize=700, quality=.82){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>h && w>maxSize){h=Math.round(h*maxSize/w);w=maxSize;}
+        else if(h>=w && h>maxSize){w=Math.round(w*maxSize/h);h=maxSize;}
+        const canvas=document.createElement("canvas");
+        canvas.width=w;canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL("image/jpeg",quality));
+      };
+      img.onerror=reject;
+      img.src=reader.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+$("#addPetBtn").onclick=()=>openPetDialog();
+$("#editPetBtn").onclick=()=>{
+  const p=activePet();
+  if(!p){alert("先にペットを登録してください🐾");return;}
+  openPetDialog(p);
+};
+$("#petType").onchange=renderPhotoPreview;
+$("#petPhoto").onchange=async(e)=>{
+  const file=e.target.files?.[0];
+  if(!file)return;
+  try{
+    pendingPhoto=await resizeImage(file);
+    renderPhotoPreview();
+  }catch{
+    alert("写真を読み込めませんでした");
+  }
+};
+$("#removePhotoBtn").onclick=()=>{
+  pendingPhoto="";
+  $("#petPhoto").value="";
+  renderPhotoPreview();
+};
+
+$("#savePetBtn").onclick=(e)=>{
+  e.preventDefault();
+  const name=$("#petName").value.trim();
+  if(!name) return;
+  const data={
+    name,
+    type:$("#petType").value,
+    birthday:$("#petBirthday").value,
+    breed:$("#petBreed").value.trim(),
+    sex:$("#petSex").value,
+    note:$("#petNote").value.trim(),
+    photo:pendingPhoto
+  };
+
+  if(editingPetId){
+    const idx=state.pets.findIndex(p=>p.id===editingPetId);
+    if(idx>=0) state.pets[idx]={...state.pets[idx],...data};
+  }else{
+    const p={id:Date.now(),...data};
+    state.pets.push(p);
+    state.activePet=p.id;
+  }
+  save();
+  $("#petDialog").close();
+  $("#petForm").reset();
+  editingPetId=null;
+  pendingPhoto="";
+};
+
+$("#deletePetBtn").onclick=()=>{
+  const p=activePet();
+  if(!p){alert("削除するペットがありません");return;}
+  if(!confirm(`${p.name}ちゃんのプロフィールを削除しますか？
+健康記録もこのペット分は削除されます。`)) return;
+  const id=p.id;
+  state.pets=state.pets.filter(x=>x.id!==id);
+  state.health=state.health.filter(x=>x.petId!==id);
+  state.activePet=state.pets[0]?.id || null;
+  save();
+};
+
+
+$("#closePetDialogBtn").onclick=()=>{
+  try{
+    $("#petDialog").close();
+  }catch(e){
+    $("#petDialog").removeAttribute("open");
+  }
+  editingPetId=null;
+  pendingPhoto="";
+  try{$("#petForm").reset();}catch(e){}
+};
+
+$("#petDialog").addEventListener("click",(e)=>{
+  if(e.target === $("#petDialog")){
+    try{$("#petDialog").close();}catch(_){}
+  }
+});
+
+$("#saveHealthBtn").onclick=()=>{
+  const p=activePet(); if(!p){ alert("先にペットを登録してください🐾"); go("pets"); return; }
+  state.health.unshift({id:Date.now(),petId:p.id,date:new Date().toISOString().slice(0,10),weight:$("#weightInput").value,condition:$("#conditionInput").value,memo:$("#healthMemo").value.trim()});
+  $("#weightInput").value=""; $("#healthMemo").value=""; save();
+};
+
+$("#saveEventBtn").onclick=()=>{
+  const title=$("#eventTitle").value.trim(),date=$("#eventDate").value;
+  if(!title||!date){alert("タイトルと日付を入力してください🌷");return;}
+  state.events.push({id:Date.now(),petId:$("#eventPet").value?Number($("#eventPet").value):null,type:$("#eventType").value,title,date,time:$("#eventTime").value||"",repeat:$("#eventRepeat").value||"none",memo:$("#eventMemo").value.trim(),reminder:Number($("#eventReminder").value),done:false});
+  state.events.sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+  $("#eventTitle").value="";$("#eventTime").value="";$("#eventMemo").value="";$("#eventReminder").value="3";save();
+};
+
+function renderPets(){
+  const box=$("#petCards"); box.innerHTML="";
+  if(!state.pets.length){
+    box.innerHTML='<div class="empty">まだ登録がありません。<br>「＋ 追加」から登録してね 🐾</div>';
+    $("#petProfileBody").innerHTML='<div class="empty">ペットを登録するとプロフィールが表示されます 💗</div>';
+    $("#editPetBtn").style.display="none";
+    $("#deletePetBtn").style.display="none";
+    return;
+  }
+  $("#editPetBtn").style.display="";
+  $("#deletePetBtn").style.display="";
+  state.pets.forEach(p=>{
+    const d=document.createElement("button");
+    d.className="pet-card"+(p.id===state.activePet?" active":"");
+    const visual=p.photo
+      ? `<img class="pet-card-photo" src="${p.photo}" alt="${p.name}">`
+      : `<span class="pet-card-photo fallback">${petEmoji(p.type)}</span>`;
+    d.innerHTML=`${visual}<b>${p.name}</b><small>${p.breed||p.type}</small>`;
+    d.onclick=()=>{state.activePet=p.id;save();};
+    box.appendChild(d);
+  });
+  renderPetProfile();
+}
+
+function renderPetProfile(){
+  const p=activePet();
+  if(!p){
+    $("#petProfileBody").innerHTML='<div class="empty">ペットを登録するとプロフィールが表示されます 💗</div>';
+    return;
+  }
+  const visual=p.photo
+    ? `<img class="profile-photo" src="${p.photo}" alt="${p.name}">`
+    : `<div class="profile-photo profile-photo-fallback">${petEmoji(p.type)}</div>`;
+  $("#petProfileBody").innerHTML=`
+    <div class="profile-hero">
+      ${visual}
+      <div>
+        <div class="profile-name">${p.name}</div>
+        <div class="profile-sub">${p.breed||p.type}</div>
+      </div>
+    </div>
+    <div class="profile-info">
+      <div class="info-box"><small>種類</small><b>${p.type}</b></div>
+      <div class="info-box"><small>性別</small><b>${p.sex||"未設定"}</b></div>
+      <div class="info-box"><small>誕生日</small><b>${p.birthday||"未設定"}</b></div>
+      <div class="info-box"><small>健康記録</small><b>${state.health.filter(x=>x.petId===p.id).length}件</b></div>
+    </div>
+    ${p.note?`<div class="profile-note">💬 ${p.note}</div>`:""}
+  `;
+}
+
+function renderHealth(){
+  const p=activePet();
+  const arr=state.health.filter(x=>!p || x.petId===p.id);
+
+  const html=arr.length
+    ? arr.map(x=>`<div class="item">
+        <div>
+          <b>${x.date} ・ ${x.condition}</b>
+          <div class="meta">${x.weight?`体重 ${x.weight}kg ・ `:""}${x.memo||"メモなし"}</div>
+        </div>
+        <button class="health-delete-btn" onclick="deleteHealth(${x.id})">削除</button>
+      </div>`).join("")
+    : '<div class="empty">健康記録はまだありません 🩺</div>';
+
+  $("#healthList").innerHTML=html;
+
+  $("#recentHealth").innerHTML=arr.slice(0,2).map(x=>`
+    <div class="item">
+      <div><b>${x.condition}</b><div class="meta">${x.date}${x.weight?` ・ ${x.weight}kg`:""}</div></div>
+      <span>🌿</span>
+    </div>`).join("") || '<div class="empty">まだ記録がありません</div>';
+
+  renderWeightChart(arr);
+}
+
+function renderWeightChart(arr){
+  const canvas=$("#weightChart");
+  const empty=$("#chartEmpty");
+  const summary=$("#weightSummary");
+  if(!canvas) return;
+
+  const data=arr
+    .filter(x=>x.weight && !Number.isNaN(Number(x.weight)))
+    .map(x=>({date:x.date,weight:Number(x.weight),id:x.id}))
+    .sort((a,b)=>a.date.localeCompare(b.date) || a.id-b.id)
+    .slice(-12);
+
+  const ctx=canvas.getContext("2d");
+  const ratio=Math.max(1,window.devicePixelRatio||1);
+  const cssW=canvas.clientWidth || 420;
+  const cssH=220;
+  canvas.width=Math.round(cssW*ratio);
+  canvas.height=Math.round(cssH*ratio);
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  if(data.length<2){
+    empty.style.display="flex";
+    summary.textContent=data.length===1?`${data[0].weight}kg`:"記録なし";
+    return;
+  }
+  empty.style.display="none";
+
+  const weights=data.map(d=>d.weight);
+  const min=Math.min(...weights), max=Math.max(...weights);
+  const pad=Math.max(.2,(max-min)*.25);
+  const low=Math.max(0,min-pad), high=max+pad;
+
+  const left=38,right=12,top=16,bottom=34;
+  const plotW=cssW-left-right, plotH=cssH-top-bottom;
+  const x=i=>left+(plotW*(i/(data.length-1)));
+  const y=v=>top+plotH-(plotH*((v-low)/(high-low || 1)));
+
+  ctx.lineWidth=1;
+  ctx.strokeStyle="rgba(150,120,145,.18)";
+  ctx.fillStyle="#8c7988";
+  ctx.font="11px -apple-system, BlinkMacSystemFont, sans-serif";
+
+  for(let i=0;i<4;i++){
+    const gy=top+(plotH*i/3);
+    ctx.beginPath(); ctx.moveTo(left,gy); ctx.lineTo(cssW-right,gy); ctx.stroke();
+    const val=high-(high-low)*i/3;
+    ctx.fillText(val.toFixed(1),3,gy+4);
+  }
+
+  ctx.strokeStyle="rgba(220,90,145,.75)";
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  data.forEach((d,i)=>{
+    const px=x(i),py=y(d.weight);
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  });
+  ctx.stroke();
+
+  data.forEach((d,i)=>{
+    const px=x(i),py=y(d.weight);
+    ctx.beginPath();
+    ctx.fillStyle="#fff";
+    ctx.arc(px,py,5,0,Math.PI*2);
+    ctx.fill();
+    ctx.lineWidth=3;
+    ctx.strokeStyle="rgba(220,90,145,.9)";
+    ctx.stroke();
+
+    if(i===0 || i===data.length-1){
+      ctx.fillStyle="#7f6b7d";
+      ctx.font="10px -apple-system, BlinkMacSystemFont, sans-serif";
+      const label=d.date.slice(5).replace("-","/");
+      ctx.fillText(label,Math.max(2,Math.min(cssW-38,px-14)),cssH-10);
+    }
+  });
+
+  const first=data[0].weight,last=data[data.length-1].weight;
+  const diff=last-first;
+  const arrow=diff>0.05?"↗":diff<-0.05?"↘":"→";
+  summary.textContent=`${last.toFixed(1)}kg ${arrow} ${diff>=0?"+":""}${diff.toFixed(1)}kg`;
+}
+
+let calendarCursor=new Date(),selectedCalendarDate="",futureOnly=false;
+function evEmoji(t){return t?.includes("ワクチン")?"💉":t?.includes("お薬")?"💊":t?.includes("病院")?"🏥":t?.includes("トリミング")?"✂️":t?.includes("記念日")?"🎂":"📌"}
+function evPet(e){return e.petId?(state.pets.find(p=>p.id===e.petId)?.name||"ペット"):"共通"}
+function renderCalendar(){
+ const g=$("#calendarGrid");if(!g)return;const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth();$("#calendarTitle").textContent=`${y}年 ${m+1}月`;
+ const start=new Date(y,m,1-new Date(y,m,1).getDay()),today=new Date().toISOString().slice(0,10);g.innerHTML="";
+ for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;const evs=state.events.filter(e=>e.date===ds),b=document.createElement("button");b.className="calendar-day"+(d.getMonth()!==m?" other":"")+(ds===today?" today":"")+(ds===selectedCalendarDate?" selected":"");b.innerHTML=`<span class="day-number">${d.getDate()}</span><div class="day-dots">${evs.slice(0,4).map(e=>`<span>${evEmoji(e.type)}</span>`).join("")}</div>`;b.onclick=()=>{selectedCalendarDate=ds;$("#eventDate").value=ds;renderEvents()};g.appendChild(b)}
+}
+function renderEventPetOptions(){const s=$("#eventPet");if(!s)return;const cur=s.value;s.innerHTML='<option value="">共通</option>'+state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("");if([...s.options].some(o=>o.value===cur))s.value=cur;else if(activePet())s.value=activePet().id}
+function renderMedList(){const today=new Date().toISOString().slice(0,10);let a=state.events.filter(e=>e.type?.includes("お薬")||e.type?.includes("ワクチン"));if(futureOnly)a=a.filter(e=>e.date>=today);$("#medList").innerHTML=a.length?a.map(e=>`<div class="med-card"><div class="med-card-top"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}</div>${e.memo?`<div class="meta">📝 ${e.memo}</div>`:""}</div><button class="done-btn ${e.done?"done":""}" onclick="toggleEventDone(${e.id})">${e.done?"済み":"完了"}</button></div></div>`).join(""):'<div class="empty">薬・ワクチンの予定はまだありません 💊</div>'}
+
+function daysUntil(dateStr){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const target=new Date(dateStr+"T00:00:00");
+  return Math.round((target-now)/86400000);
+}
+function renderReminderCenter(){
+  const box=$("#reminderList"), status=$("#notificationStatus");
+  if(!box || !status) return;
+
+  let permission="unsupported";
+  if("Notification" in window) permission=Notification.permission;
+  status.textContent = permission==="granted"
+    ? "ブラウザ通知：許可済み ✅"
+    : permission==="denied"
+      ? "ブラウザ通知：拒否されています"
+      : permission==="default"
+        ? "ブラウザ通知：未許可"
+        : "この環境ではブラウザ通知に対応していません";
+
+  const due=state.events
+    .filter(e=>!e.done && Number(e.reminder ?? 3) >= 0)
+    .map(e=>({...e,days:daysUntil(e.date),rem:Number(e.reminder ?? 3)}))
+    .filter(e=>e.days>=0 && e.days<=e.rem)
+    .sort((a,b)=>a.days-b.days);
+
+  box.innerHTML=due.length?due.map(e=>{
+    const when=e.days===0?"今日":`${e.days}日後`;
+    return `<div class="reminder-card ${e.days===0?"urgent":""}">
+      <div><span class="reminder-pill">${when}</span></div>
+      <b>${evEmoji(e.type)} ${e.title}</b>
+      <div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}</div>
+      ${e.memo?`<div class="meta">📝 ${e.memo}</div>`:""}
+    </div>`;
+  }).join(""):'<div class="empty">今のところ通知する予定はありません 🌷</div>';
+
+  if(permission==="granted"){
+    due.forEach(e=>{
+      const key=`pawpalNotified:${e.id}:${e.date}:${e.days}`;
+      if(!localStorage.getItem(key)){
+        try{
+          new Notification(`PawPal ${e.days===0?"今日の予定":`${e.days}日後の予定`}`,{
+            body:`${e.title} ・ ${evPet(e)}`,
+            icon:""
+          });
+          localStorage.setItem(key,"1");
+        }catch(_){}
+      }
+    });
+  }
+}
+
+async function requestNotificationPermission(){
+  if(!("Notification" in window)){
+    alert("このブラウザでは通知機能に対応していません。アプリ内リマインダーは使えます。");
+    return;
+  }
+  try{
+    const p=await Notification.requestPermission();
+    renderReminderCenter();
+    if(p==="granted") alert("通知を許可しました 🔔");
+  }catch{
+    alert("通知許可を開けませんでした。アプリ内リマインダーは使えます。");
+  }
+}
+
+function renderEvents(){renderEventPetOptions();renderCalendar();renderMedList();renderReminderCenter();let a=[...state.events];if(selectedCalendarDate)a=a.filter(e=>e.date===selectedCalendarDate);$("#eventList").innerHTML=a.length?a.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.date}${e.time?` ${e.time}`:""} ・ ${evPet(e)}${e.done?" ・ ✅済み":""}</div></div><button class="text-btn" onclick="deleteEvent(${e.id})">削除</button></div>`).join(""):'<div class="empty">予定はまだありません 📅</div>';const t=new Date().toISOString().slice(0,10),todays=state.events.filter(e=>e.date===t);$("#todayList").innerHTML=todays.length?todays.map(e=>`<div class="item"><div><b>${evEmoji(e.type)} ${e.title}</b><div class="meta">${e.time||"今日"} ・ ${evPet(e)}</div></div><span>${e.done?"✅":"✨"}</span></div>`).join(""):'<div class="empty">今日はゆっくりできそうです ☕️</div>'}
+window.deleteEvent=id=>{state.events=state.events.filter(e=>e.id!==id);save()};window.toggleEventDone=id=>{const e=state.events.find(x=>x.id===id);if(e){e.done=!e.done;save()}};
+$("#prevMonthBtn").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);selectedCalendarDate="";renderEvents()};
+$("#nextMonthBtn").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);selectedCalendarDate="";renderEvents()};
+$("#showAllEventsBtn").onclick=()=>{selectedCalendarDate="";renderEvents()};
+$("#showDueOnlyBtn").onclick=()=>{futureOnly=!futureOnly;$("#showDueOnlyBtn").textContent=futureOnly?"すべて":"今後だけ";renderMedList()};
+
+window.deleteHealth=(id)=>{
+  state.health=state.health.filter(x=>x.id!==id);
+  save();
+};
+
+$("#clearHealthBtn").onclick=()=>{
+  const p=activePet();
+  if(!p){alert("ペットを登録してください🐾");return;}
+  const count=state.health.filter(x=>x.petId===p.id).length;
+  if(!count){alert("削除する健康記録がありません");return;}
+  if(!confirm(`${p.name}ちゃんの健康記録 ${count}件をすべて削除しますか？`)) return;
+  state.health=state.health.filter(x=>x.petId!==p.id);
+  save();
+};
+
+
 let placeFilter="すべて";
 let currentPlaceId=null;
-let lastUserLocation=null;
 
 function placePref(id){
   state.placePrefs[id] ||= {favorite:false,visited:false};
   return state.placePrefs[id];
 }
 
-function haversineKm(lat1,lon1,lat2,lon2){
-  const R=6371,toRad=x=>x*Math.PI/180;
-  const dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-function classifyOSM(tags={}){
-  const amenity=tags.amenity||"",shop=tags.shop||"",tourism=tags.tourism||"",animal=tags.animal_boarding||"";
-  if(amenity==="veterinary")return {type:"病院",emoji:"🏥"};
-  if(shop==="pet_grooming"||shop==="hairdresser"&&/pet|dog|cat/i.test(tags.name||""))return {type:"トリミング",emoji:"✂️"};
-  if(amenity==="animal_boarding"||animal==="yes"||tourism==="hotel"&&/pet|dog|cat|犬|猫/i.test(tags.name||""))return {type:"ホテル",emoji:"🏨"};
-  return null;
-}
-
-function osmAddress(tags={}){
-  const parts=[
-    tags["addr:province"]||tags["addr:state"],
-    tags["addr:city"]||tags["addr:town"]||tags["addr:village"],
-    tags["addr:suburb"],
-    tags["addr:street"],
-    tags["addr:housenumber"]
-  ].filter(Boolean);
-  return parts.join(" ");
-}
-
-function osmToPlace(el){
-  const tags=el.tags||{};
-  const cls=classifyOSM(tags);
-  if(!cls)return null;
-  const lat=el.lat??el.center?.lat;
-  const lon=el.lon??el.center?.lon;
-  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
-  const name=tags.name||tags["name:ja"]||`${cls.type}（名称未登録）`;
-  const phone=tags.phone||tags["contact:phone"]||"";
-  const url=tags.website||tags["contact:website"]||"";
-  const address=osmAddress(tags);
-  return {
-    id:`osm-${el.type}-${el.id}`,
-    name,
-    type:cls.type,
-    emoji:cls.emoji,
-    area:tags["addr:province"]||tags["addr:state"]||"",
-    city:tags["addr:city"]||tags["addr:town"]||tags["addr:village"]||"",
-    note:tags.description||tags.healthcare||tags.service||cls.type,
-    hours:tags.opening_hours||"営業時間未登録",
-    phone,
-    address:address||"住所情報なし",
-    url,
-    lat,lon,
-    source:"OpenStreetMap"
-  };
-}
-
-async function fetchOverpass(query){
-  const endpoints=[
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
-  ];
-  let lastErr=null;
-  for(const endpoint of endpoints){
-    try{
-      const res=await fetch(endpoint,{
-        method:"POST",
-        headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
-        body:"data="+encodeURIComponent(query)
-      });
-      if(!res.ok)throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }catch(e){lastErr=e}
-  }
-  throw lastErr||new Error("OpenStreetMap検索に失敗しました");
-}
-
-function buildAroundQuery(lat,lon,radius=10000){
-  return `[out:json][timeout:25];
-(
-  nwr(around:${radius},${lat},${lon})["amenity"="veterinary"];
-  nwr(around:${radius},${lat},${lon})["shop"="pet_grooming"];
-  nwr(around:${radius},${lat},${lon})["amenity"="animal_boarding"];
-);
-out center tags;`;
-}
-
-async function searchNearbyPlaces(){
-  $("#nearbyStatusBadge").textContent="検索中…";
-  $("#placeSearchInfo").textContent="現在地を取得しています…";
-  if(!navigator.geolocation){
-    $("#nearbyStatusBadge").textContent="利用不可";
-    $("#placeSearchInfo").textContent="このブラウザでは位置情報を利用できません。地域検索を使ってください。";
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    try{
-      lastUserLocation={lat:pos.coords.latitude,lon:pos.coords.longitude};
-      $("#placeSearchInfo").textContent="OpenStreetMapから周辺のお店を検索しています…";
-      const data=await fetchOverpass(buildAroundQuery(lastUserLocation.lat,lastUserLocation.lon,12000));
-      const found=(data.elements||[]).map(osmToPlace).filter(Boolean);
-      const unique=new Map(found.map(x=>[x.id,x]));
-      places=[...unique.values()];
-      $("#nearbyStatusBadge").textContent=`${places.length}件`;
-      $("#placeSearchInfo").innerHTML=`現在地から約12km以内で <b>${places.length}件</b> 見つかりました。`;
-      $("#placeSort").value="distance";
-      renderPlaces();
-    }catch(e){
-      console.error(e);
-      $("#nearbyStatusBadge").textContent="失敗";
-      $("#placeSearchInfo").textContent="周辺検索に失敗しました。時間をおいて再度試すか、地域検索を使ってください。";
-    }
-  },err=>{
-    $("#nearbyStatusBadge").textContent="許可が必要";
-    let msg="位置情報を取得できませんでした。";
-    if(err.code===1)msg="位置情報が許可されていません。Safariの位置情報を許可するか、地域検索を使ってください。";
-    $("#placeSearchInfo").textContent=msg;
-  },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
-}
-
-async function geocodeRegion(region){
-  const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=jp&q=${encodeURIComponent(region+", Japan")}`;
-  const res=await fetch(url,{headers:{"Accept":"application/json"}});
-  if(!res.ok)throw new Error(`Geocode HTTP ${res.status}`);
-  const data=await res.json();
-  if(!data.length)return null;
-  return {lat:Number(data[0].lat),lon:Number(data[0].lon),display:data[0].display_name};
-}
-
-async function searchRegionPlaces(){
-  const region=$("#placeRegionInput").value.trim();
-  if(!region){
-    $("#regionSearchMessage").textContent="都道府県名や市区町村名を入力してください。";
-    return;
-  }
-  $("#regionSearchMessage").textContent="地域を検索しています…";
-  try{
-    const geo=await geocodeRegion(region);
-    if(!geo){
-      $("#regionSearchMessage").textContent="地域が見つかりませんでした。表記を変えて試してください。";
-      return;
-    }
-    $("#regionSearchMessage").textContent="OpenStreetMapからお店を検索しています…";
-    const data=await fetchOverpass(buildAroundQuery(geo.lat,geo.lon,20000));
-    const found=(data.elements||[]).map(osmToPlace).filter(Boolean);
-    places=[...new Map(found.map(x=>[x.id,x])).values()];
-    $("#regionSearchMessage").innerHTML=`${escapeHtml(region)} 周辺で <b>${places.length}件</b> 見つかりました。`;
-    $("#placeSearchInfo").textContent=`検索地域：${region}`;
-    renderPlaces();
-  }catch(e){
-    console.error(e);
-    $("#regionSearchMessage").textContent="地域検索に失敗しました。時間をおいてもう一度試してください。";
-  }
-}
-
 function renderPlaces(){
   const q=($("#placeSearch")?.value||"").trim().toLowerCase();
-  let arr=places.filter(x=>{
+  const arr=places.filter(x=>{
     const pref=placePref(x.id);
     const matchFilter=
       placeFilter==="すべて" ||
-      (placeFilter==="お気に入り"&&pref.favorite) ||
+      (placeFilter==="お気に入り" && pref.favorite) ||
       x.type===placeFilter;
-    const text=`${x.name}${x.area}${x.city||""}${x.type}${x.note}${x.address||""}`.toLowerCase();
-    return matchFilter&&(!q||text.includes(q));
+    const text=`${x.name}${x.area}${x.city||""}${x.type}${x.note}`.toLowerCase();
+    return matchFilter && (!q || text.includes(q));
   });
-
-  if($("#placeSort")?.value==="name"){
-    arr.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
-  }else if(lastUserLocation){
-    arr.forEach(x=>x.distanceKm=haversineKm(lastUserLocation.lat,lastUserLocation.lon,x.lat,x.lon));
-    arr.sort((a,b)=>(a.distanceKm??9999)-(b.distanceKm??9999));
-  }
 
   $("#placeList").innerHTML=arr.length?arr.map(x=>{
     const pref=placePref(x.id);
-    const dist=Number.isFinite(x.distanceKm)?`<div class="place-distance">📏 ${x.distanceKm.toFixed(1)} km</div>`:"";
     return `<div class="place-card">
       <div class="place-card-row">
         <div class="place-card-main">
           <div class="place-card-emoji">${x.emoji}</div>
           <div>
             <div class="place-card-name">${escapeHtml(x.name)}</div>
-            <div class="place-card-meta">${escapeHtml(x.area||x.city||"地域未登録")} ・ ${escapeHtml(x.note||x.type)}</div>
-            ${dist}
+            <div class="place-card-meta">${escapeHtml(x.area)} ・ ${escapeHtml(x.note)}</div>
             <div class="place-card-badges">
               <span class="place-badge">${escapeHtml(x.type)}</span>
               ${pref.favorite?'<span class="place-badge favorite">❤️ お気に入り</span>':""}
@@ -319,11 +595,12 @@ function renderPlaces(){
         <button class="place-open-btn" type="button" data-place-id="${x.id}" aria-label="${escapeHtml(x.name)}を開く">›</button>
       </div>
     </div>`;
-  }).join(""):'<div class="empty">条件に合うお店がありません</div>';
+  }).join(""):'<div class="empty">見つかりませんでした</div>';
 
   document.querySelectorAll(".place-open-btn").forEach(btn=>{
     btn.onclick=()=>openPlaceDetail(btn.dataset.placeId);
   });
+
   renderPlaceMemos();
 }
 
@@ -332,38 +609,39 @@ function renderPlaceMemos(){
   $("#placeMemoCount").textContent=`${entries.length}件`;
   $("#placeMemoList").innerHTML=entries.length?entries.map(([id,memo])=>{
     const p=places.find(x=>x.id===id);
-    const name=p?.name||state.placePrefs[id]?.name||"保存したお店";
-    const emoji=p?.emoji||"📍";
-    return `<div class="item"><div><b>${emoji} ${escapeHtml(name)}</b><div class="meta">${escapeHtml(memo)}</div></div>${p?`<button class="text-btn" onclick="openPlaceDetail('${id}')">開く</button>`:""}</div>`;
+    if(!p)return "";
+    return `<div class="item">
+      <div><b>${p.emoji} ${escapeHtml(p.name)}</b><div class="meta">${escapeHtml(memo)}</div></div>
+      <button class="text-btn" onclick="openPlaceDetail('${id}')">開く</button>
+    </div>`;
   }).join(""):'<div class="empty">お店メモはまだありません</div>';
 }
 
 function openPlaceDetail(id){
-  const p=places.find(x=>x.id===id);if(!p)return;
+  const p=places.find(x=>x.id===id);
+  if(!p)return;
   currentPlaceId=id;
   const pref=placePref(id);
-  pref.name=p.name;
 
   $("#placeDetailEmoji").textContent=p.emoji;
   $("#placeDetailName").textContent=p.name;
-  $("#placeDetailMeta").textContent=`${p.area||""} ${p.city||""} ・ ${p.type}`;
+  $("#placeDetailMeta").textContent=`${p.area} ${p.city||""} ・ ${p.type}`;
   $("#placeDetailBody").innerHTML=`
-    <b>${escapeHtml(p.note||p.type)}</b><br>
-    📍 ${escapeHtml(p.address||"住所情報なし")}<br>
+    <b>${escapeHtml(p.note)}</b><br>
+    📍 ${escapeHtml(p.address||p.area)}<br>
     🕒 ${escapeHtml(p.hours||"営業時間未登録")}
-    ${Number.isFinite(p.distanceKm)?`<br>📏 現在地から約 ${p.distanceKm.toFixed(1)} km`:""}
-    <div class="place-source">データ: OpenStreetMap contributors</div>
   `;
 
   $("#placePhoneBtn").href=p.phone?`tel:${p.phone}`:"#";
   $("#placePhoneBtn").style.display=p.phone?"":"none";
-  $("#placeMapBtn").href=`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=18/${p.lat}/${p.lon}`;
+  $("#placeMapBtn").href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+" "+p.area+" "+(p.city||""))}`;
   $("#placeWebBtn").href=p.url||"#";
   $("#placeWebBtn").style.display=p.url?"":"none";
 
   $("#placeFavoriteBtn").textContent=pref.favorite?"💔 お気に入り解除":"❤️ お気に入り";
   $("#placeVisitedBtn").textContent=pref.visited?"↩️ 行ったを解除":"✅ 行った";
   $("#placeMemoInput").value=state.placeMemos[id]||"";
+
   $("#placeDetailModal").classList.add("open");
   $("#placeDetailModal").setAttribute("aria-hidden","false");
 }
@@ -373,14 +651,16 @@ function closePlaceDetail(){
   $("#placeDetailModal").setAttribute("aria-hidden","true");
   currentPlaceId=null;
 }
+
 window.openPlaceDetail=openPlaceDetail;
 
-$("#searchNearbyPlacesBtn").onclick=searchNearbyPlaces;
-$("#searchRegionPlacesBtn").onclick=searchRegionPlaces;
-$("#placeRegionInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchRegionPlaces();});
 $("#placeSearch").oninput=renderPlaces;
-$("#placeSort").onchange=renderPlaces;
-
+$("#searchNearbyPlacesBtn").onclick=()=>{
+  const q=($("#placeSearch")?.value||"").trim();
+  const kind=placeFilter!=="すべて"&&placeFilter!=="お気に入り"?placeFilter:"ペット";
+  const term=q?`${q} ${kind}`:`${kind} 動物病院 トリミング ペットホテル`;
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(term)}`,"_blank","noopener");
+};
 document.querySelectorAll(".place-filter").forEach(c=>{
   c.onclick=()=>{
     document.querySelectorAll(".place-filter").forEach(x=>x.classList.remove("active"));
@@ -394,26 +674,35 @@ $("#placeFavoriteBtn").onclick=()=>{
   if(!currentPlaceId)return;
   const pref=placePref(currentPlaceId);
   pref.favorite=!pref.favorite;
-  save();openPlaceDetail(currentPlaceId);renderPlaces();
+  save();
+  openPlaceDetail(currentPlaceId);
 };
+
 $("#placeVisitedBtn").onclick=()=>{
   if(!currentPlaceId)return;
   const pref=placePref(currentPlaceId);
   pref.visited=!pref.visited;
-  save();openPlaceDetail(currentPlaceId);renderPlaces();
+  save();
+  openPlaceDetail(currentPlaceId);
 };
+
 $("#savePlaceMemoBtn").onclick=()=>{
   if(!currentPlaceId)return;
   const memo=$("#placeMemoInput").value.trim();
-  if(memo)state.placeMemos[currentPlaceId]=memo; else delete state.placeMemos[currentPlaceId];
+  if(memo)state.placeMemos[currentPlaceId]=memo;
+  else delete state.placeMemos[currentPlaceId];
   save();
   $("#savePlaceMemoBtn").textContent="✅ 保存しました";
   setTimeout(()=>$("#savePlaceMemoBtn").textContent="💾 メモを保存",900);
-  renderPlaceMemos();
 };
+
 $("#closePlaceDetailBtn").onclick=closePlaceDetail;
 $("#closePlaceDetailBottomBtn").onclick=closePlaceDetail;
-$("#placeDetailModal").addEventListener("click",e=>{if(e.target.id==="placeDetailModal")closePlaceDetail();});
+$("#placeDetailModal").addEventListener("click",e=>{
+  if(e.target.id==="placeDetailModal")closePlaceDetail();
+});
+
+
 
 let editingProductId=null;
 let favoriteOnly=false;
