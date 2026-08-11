@@ -786,11 +786,29 @@ $("#janSearchBtn").onclick=()=>{
 };
 
 
+
 let barcodeStream=null;
-let barcodeDetector=null;
 let barcodeScanTimer=null;
 let barcodeScanning=false;
 let lastBarcodeValue="";
+let barcodeBusy=false;
+
+const EAN_L={
+  "0001101":"0","0011001":"1","0010011":"2","0111101":"3","0100011":"4",
+  "0110001":"5","0101111":"6","0111011":"7","0110111":"8","0001011":"9"
+};
+const EAN_G={
+  "0100111":"0","0110011":"1","0011011":"2","0100001":"3","0011101":"4",
+  "0111001":"5","0000101":"6","0010001":"7","0001001":"8","0010111":"9"
+};
+const EAN_R={
+  "1110010":"0","1100110":"1","1101100":"2","1000010":"3","1011100":"4",
+  "1001110":"5","1010000":"6","1000100":"7","1001000":"8","1110100":"9"
+};
+const EAN13_PARITY={
+  "LLLLLL":"0","LLGLGG":"1","LLGGLG":"2","LLGGGL":"3","LGLLGG":"4",
+  "LGGLLG":"5","LGGGLL":"6","LGLGLG":"7","LGLGGL":"8","LGGLGL":"9"
+};
 
 function setBarcodeStatus(message,type=""){
   const el=$("#barcodeStatus");
@@ -801,6 +819,7 @@ function setBarcodeStatus(message,type=""){
 
 function stopBarcodeCamera(){
   barcodeScanning=false;
+  barcodeBusy=false;
   if(barcodeScanTimer){
     clearTimeout(barcodeScanTimer);
     barcodeScanTimer=null;
@@ -811,7 +830,7 @@ function stopBarcodeCamera(){
   }
   const video=$("#barcodeVideo");
   if(video){
-    video.pause();
+    try{video.pause()}catch(e){}
     video.srcObject=null;
   }
   const modal=$("#barcodeScannerModal");
@@ -819,6 +838,183 @@ function stopBarcodeCamera(){
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden","true");
   }
+}
+
+function checksumEAN(code){
+  if(!/^\d+$/.test(code))return false;
+  const d=[...code].map(Number);
+  const check=d.pop();
+  let sum=0;
+  for(let i=0;i<d.length;i++){
+    const fromRight=d.length-i;
+    sum+=d[i]*((fromRight%2===1)?3:1);
+  }
+  return ((10-(sum%10))%10)===check;
+}
+
+function nearestPattern(bits,map,maxError=1){
+  let best=null,bestErr=99;
+  for(const [pat,digit] of Object.entries(map)){
+    let err=0;
+    for(let i=0;i<7;i++)if(bits[i]!==pat[i])err++;
+    if(err<bestErr){bestErr=err;best=digit}
+  }
+  return bestErr<=maxError?{digit:best,error:bestErr}:null;
+}
+
+function decodeEAN13Bits(bits){
+  if(bits.length!==95)return null;
+  if(bits.slice(0,3)!=="101"||bits.slice(45,50)!=="01010"||bits.slice(92)!=="101")return null;
+  let left="",parity="",errors=0;
+  for(let i=0;i<6;i++){
+    const chunk=bits.slice(3+i*7,10+i*7);
+    const l=nearestPattern(chunk,EAN_L,1);
+    const g=nearestPattern(chunk,EAN_G,1);
+    if(!l&&!g)return null;
+    if(l&&(!g||l.error<=g.error)){left+=l.digit;parity+="L";errors+=l.error}
+    else{left+=g.digit;parity+="G";errors+=g.error}
+  }
+  const first=EAN13_PARITY[parity];
+  if(first===undefined)return null;
+  let right="";
+  for(let i=0;i<6;i++){
+    const chunk=bits.slice(50+i*7,57+i*7);
+    const r=nearestPattern(chunk,EAN_R,1);
+    if(!r)return null;
+    right+=r.digit; errors+=r.error;
+  }
+  const code=first+left+right;
+  if(!checksumEAN(code))return null;
+  return {code,errors};
+}
+
+function decodeEAN8Bits(bits){
+  if(bits.length!==67)return null;
+  if(bits.slice(0,3)!=="101"||bits.slice(31,36)!=="01010"||bits.slice(64)!=="101")return null;
+  let code="",errors=0;
+  for(let i=0;i<4;i++){
+    const chunk=bits.slice(3+i*7,10+i*7);
+    const l=nearestPattern(chunk,EAN_L,1);
+    if(!l)return null;
+    code+=l.digit;errors+=l.error;
+  }
+  for(let i=0;i<4;i++){
+    const chunk=bits.slice(36+i*7,43+i*7);
+    const r=nearestPattern(chunk,EAN_R,1);
+    if(!r)return null;
+    code+=r.digit;errors+=r.error;
+  }
+  if(!checksumEAN(code))return null;
+  return {code,errors};
+}
+
+function lineToBinary(data,w,y){
+  const gray=new Uint8Array(w);
+  let min=255,max=0,sum=0;
+  for(let x=0;x<w;x++){
+    const i=(y*w+x)*4;
+    const g=(data[i]*30+data[i+1]*59+data[i+2]*11)/100;
+    gray[x]=g;
+    if(g<min)min=g;if(g>max)max=g;sum+=g;
+  }
+  if(max-min<38)return null;
+
+  const threshold=(min+max)/2;
+  let s="";
+  for(let x=0;x<w;x++)s+=gray[x]<threshold?"1":"0";
+  return s;
+}
+
+function runsFromBinary(binary){
+  const runs=[];
+  let start=0,c=binary[0];
+  for(let i=1;i<=binary.length;i++){
+    if(i===binary.length||binary[i]!==c){
+      runs.push({c,start,end:i-1,len:i-start});
+      start=i;c=binary[i];
+    }
+  }
+  return runs;
+}
+
+function majoritySample(binary,start,end,moduleCount){
+  let bits="";
+  const width=end-start+1;
+  for(let m=0;m<moduleCount;m++){
+    const a=start+(m/moduleCount)*width;
+    const b=start+((m+1)/moduleCount)*width;
+    const ia=Math.max(0,Math.floor(a));
+    const ib=Math.min(binary.length-1,Math.ceil(b)-1);
+    let ones=0,total=0;
+    for(let x=ia;x<=ib;x++){ones+=binary[x]==="1"?1:0;total++}
+    bits+=ones>=total/2?"1":"0";
+  }
+  return bits;
+}
+
+function candidateScore(runSlice,modules){
+  const total=runSlice.reduce((a,r)=>a+r.len,0);
+  const unit=total/modules;
+  if(unit<1.2)return 999;
+  let score=0;
+  for(const r of runSlice){
+    const n=Math.max(1,Math.min(4,Math.round(r.len/unit)));
+    score+=Math.abs(r.len/unit-n);
+  }
+  return score/runSlice.length;
+}
+
+function decodeBinaryLine(binary){
+  const runs=runsFromBinary(binary);
+  let best=null;
+
+  const tryFormat=(runCount,modules,decoder)=>{
+    for(let i=0;i+runCount<=runs.length;i++){
+      const slice=runs.slice(i,i+runCount);
+      if(slice[0].c!=="1"||slice[runCount-1].c!=="1")continue;
+
+      // Guard bars should be narrow-ish.
+      const total=slice.reduce((a,r)=>a+r.len,0);
+      const unit=total/modules;
+      if(unit<1.2||unit>20)continue;
+      if(slice[0].len>unit*2.2||slice[1].len>unit*2.2||slice[2].len>unit*2.2)continue;
+
+      const geom=candidateScore(slice,modules);
+      if(geom>0.95)continue;
+
+      const start=slice[0].start,end=slice[runCount-1].end;
+      const bits=majoritySample(binary,start,end,modules);
+      const decoded=decoder(bits);
+      if(decoded){
+        const score=geom+decoded.errors*0.25;
+        if(!best||score<best.score)best={...decoded,score};
+      }
+    }
+  };
+
+  tryFormat(59,95,decodeEAN13Bits);
+  tryFormat(43,67,decodeEAN8Bits);
+  return best;
+}
+
+function decodeImageDataEAN(imageData){
+  const {data,width:w,height:h}=imageData;
+  const ys=[
+    .40,.44,.48,.50,.52,.56,.60,
+    .34,.66
+  ].map(v=>Math.max(1,Math.min(h-2,Math.round(h*v))));
+
+  let best=null;
+  for(const y of ys){
+    const binary=lineToBinary(data,w,y);
+    if(!binary)continue;
+    const a=decodeBinaryLine(binary);
+    const b=decodeBinaryLine(binary.split("").reverse().join(""));
+    for(const r of [a,b]){
+      if(r&&(!best||r.score<best.score))best=r;
+    }
+  }
+  return best;
 }
 
 function useScannedJan(rawValue){
@@ -840,29 +1036,40 @@ function useScannedJan(rawValue){
   if(navigator.vibrate)navigator.vibrate(80);
   setTimeout(()=>{
     stopBarcodeCamera();
-    if(!product){
-      setTimeout(()=>$("#productName")?.focus(),150);
-    }
-  },650);
+    if(!product)setTimeout(()=>$("#productName")?.focus(),150);
+  },550);
   return true;
 }
 
+function frameToCanvas(video){
+  const canvas=$("#barcodeCanvas");
+  const maxW=960;
+  const srcW=video.videoWidth||1280,srcH=video.videoHeight||720;
+  const scale=Math.min(1,maxW/srcW);
+  canvas.width=Math.max(320,Math.round(srcW*scale));
+  canvas.height=Math.max(240,Math.round(srcH*scale));
+  const ctx=canvas.getContext("2d",{willReadFrequently:true});
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  return {canvas,ctx};
+}
+
 async function scanBarcodeFrame(){
-  if(!barcodeScanning||!barcodeDetector)return;
-  const video=$("#barcodeVideo");
+  if(!barcodeScanning||barcodeBusy)return;
+  barcodeBusy=true;
   try{
-    if(video.readyState>=2){
-      const codes=await barcodeDetector.detect(video);
-      if(codes&&codes.length){
-        const preferred=codes.find(c=>["ean_13","ean_8","upc_a","upc_e"].includes(c.format))||codes[0];
-        const value=preferred?.rawValue||"";
-        if(useScannedJan(value))return;
-      }
+    const video=$("#barcodeVideo");
+    if(video.readyState>=2&&video.videoWidth){
+      const {canvas,ctx}=frameToCanvas(video);
+      const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const result=decodeImageDataEAN(img);
+      if(result&&useScannedJan(result.code))return;
     }
   }catch(err){
-    console.warn("barcode detect",err);
+    console.warn("local barcode scan",err);
+  }finally{
+    barcodeBusy=false;
   }
-  barcodeScanTimer=setTimeout(scanBarcodeFrame,180);
+  if(barcodeScanning)barcodeScanTimer=setTimeout(scanBarcodeFrame,140);
 }
 
 async function openBarcodeCamera(){
@@ -872,25 +1079,16 @@ async function openBarcodeCamera(){
   setBarcodeStatus("カメラを準備しています…");
 
   if(!navigator.mediaDevices?.getUserMedia){
-    setBarcodeStatus("このブラウザではカメラを利用できません。JANコードを手入力してください。","error");
-    return;
-  }
-
-  if(!("BarcodeDetector" in window)){
-    setBarcodeStatus("このiPhone / Safariでは自動バーコード認識に対応していません。JANコードを手入力してください。","error");
+    setBarcodeStatus("このブラウザではカメラを利用できません。「写真から読み取る」かJAN手入力を使ってください。","error");
     return;
   }
 
   try{
-    const supported=await BarcodeDetector.getSupportedFormats();
-    const wanted=["ean_13","ean_8","upc_a","upc_e"].filter(x=>supported.includes(x));
-    barcodeDetector=new BarcodeDetector({formats:wanted.length?wanted:["ean_13"]});
-
     barcodeStream=await navigator.mediaDevices.getUserMedia({
       video:{
         facingMode:{ideal:"environment"},
-        width:{ideal:1280},
-        height:{ideal:720}
+        width:{ideal:1920},
+        height:{ideal:1080}
       },
       audio:false
     });
@@ -912,8 +1110,36 @@ async function openBarcodeCamera(){
   }
 }
 
+async function decodePhotoFile(file){
+  if(!file)return;
+  setBarcodeStatus("写真を解析しています…");
+  try{
+    const bitmap=await createImageBitmap(file);
+    const canvas=$("#barcodeCanvas");
+    const maxW=1600;
+    const scale=Math.min(1,maxW/bitmap.width);
+    canvas.width=Math.max(320,Math.round(bitmap.width*scale));
+    canvas.height=Math.max(240,Math.round(bitmap.height*scale));
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const result=decodeImageDataEAN(img);
+    if(result)useScannedJan(result.code);
+    else setBarcodeStatus("この写真からJAN/EANを読み取れませんでした。バーコードを大きく・正面から撮って試してください。","error");
+    if(bitmap.close)bitmap.close();
+  }catch(err){
+    console.error(err);
+    setBarcodeStatus("写真の読み込みに失敗しました。別の写真で試してください。","error");
+  }
+}
+
 $("#openBarcodeCameraBtn").onclick=openBarcodeCamera;
 $("#closeBarcodeCameraBtn").onclick=stopBarcodeCamera;
+$("#barcodePhotoInput").onchange=e=>{
+  const file=e.target.files?.[0];
+  if(file)decodePhotoFile(file);
+  e.target.value="";
+};
 
 $("#barcodeScannerModal").addEventListener("click",e=>{
   if(e.target.id==="barcodeScannerModal")stopBarcodeCamera();

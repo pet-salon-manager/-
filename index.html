@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v17</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -591,7 +591,7 @@
       <div class="barcode-modal-head">
         <div>
           <b>📷 バーコード読み取り</b>
-          <div class="barcode-sub">JANコードを枠の中央に合わせてください</div>
+          <div class="barcode-sub">JAN/EANバーコードを枠の中央に合わせてください</div>
         </div>
         <button id="closeBarcodeCameraBtn" class="barcode-close" aria-label="閉じる">×</button>
       </div>
@@ -604,13 +604,18 @@
       </div>
 
       <div id="barcodeStatus" class="barcode-status">カメラを準備しています…</div>
+      <canvas id="barcodeCanvas" style="display:none"></canvas>
+      <label class="barcode-photo-btn">
+        🖼️ 写真から読み取る
+        <input id="barcodePhotoInput" type="file" accept="image/*" capture="environment" hidden>
+      </label>
 
       <div class="barcode-help">
         <b>うまく読めないとき</b><br>
         ・バーコード全体を枠の中に入れる<br>
         ・10〜20cmほど離す<br>
         ・明るい場所で試す<br>
-        ・読み取れない場合はJANを手入力できます
+        ・読み取れない場合は「写真から読み取る」かJAN手入力も使えます
       </div>
     </div>
   </div>

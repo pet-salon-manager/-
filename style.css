@@ -747,3 +747,17 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   .barcode-modal{align-items:center}
   .barcode-modal-card{border-radius:24px}
 }
+
+/* PawPal v18: local EAN/JAN decoder for iPhone Safari */
+.barcode-photo-btn{
+  display:block;
+  margin-top:9px;
+  padding:11px 12px;
+  border-radius:13px;
+  background:#f4f0ff;
+  color:#6658ac;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+}
