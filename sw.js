@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v8-20260811';
+const CACHE='pawpal-v9-20260811';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

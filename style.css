@@ -452,3 +452,10 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
   font-weight:900;
   color:#c55d8e;
 }
+
+.life-grid,.life-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.life-summary-box{padding:14px;border-radius:17px;background:linear-gradient(135deg,#f8fff9,#fffafd);border:1px solid #e4efe7}
+.life-summary-box small{display:block;color:var(--muted);margin-bottom:5px}.life-summary-box b{font-size:18px}
+.life-record-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.life-tag{display:inline-block;padding:4px 7px;border-radius:999px;background:#eef9f2;color:#4f8061;font-size:10px;font-weight:800}
+.life-warning{margin-top:10px;padding:10px 12px;border-radius:14px;background:#fff3f4;color:#bd5969;font-size:12px;font-weight:800}
+@media(max-width:380px){.life-grid,.life-summary{grid-template-columns:1fr}}

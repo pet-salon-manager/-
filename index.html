@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v8</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v9</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -37,6 +37,7 @@
           <button class="quick card" data-go="documents"><span>📄</span><b>書類</b><small>証明書・保険証</small></button>
           <button class="quick card" data-go="album"><span>📸</span><b>アルバム</b><small>成長・思い出</small></button>
           <button class="quick card" data-go="food"><span>🍚</span><b>食事</b><small>フード・在庫</small></button>
+          <button class="quick card" data-go="life"><span>🚶</span><b>生活</b><small>散歩・排泄・睡眠</small></button>
           <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
@@ -165,7 +166,28 @@
       
       
       
-      <section id="food" class="screen">
+      <section id="life" class="screen">
+<div class="screen-head"><h2>🚶 散歩・生活記録</h2><p>散歩・排泄・水分・睡眠をペットごとに記録</p></div>
+<div class="card section-card">
+<div class="section-title"><h3>生活記録を追加</h3><span class="summary-badge">ペット別</span></div>
+<label>ペット<select id="lifePet"></select></label>
+<label>日付<input id="lifeDate" type="date"></label>
+<div class="life-grid">
+<label>散歩時間（分）<input id="walkMinutes" type="number" placeholder="例：30"></label>
+<label>散歩距離（km）<input id="walkDistance" type="number" step="0.1" placeholder="例：2.5"></label>
+<label>飲水量（ml）<input id="waterAmount" type="number" placeholder="例：350"></label>
+<label>睡眠時間（時間）<input id="sleepHours" type="number" step="0.5" placeholder="例：12"></label>
+</div>
+<label>おしっこ<select id="peeCount"><option value="0">0回</option><option value="1">1回</option><option value="2">2回</option><option value="3">3回</option><option value="4">4回</option><option value="5">5回以上</option></select></label>
+<label>うんち<select id="poopStatus"><option>なし</option><option>正常</option><option>やわらかい</option><option>硬い</option><option>下痢気味</option><option>気になる</option></select></label>
+<label>元気<select id="lifeMood"><option>とても元気</option><option>元気</option><option>ふつう</option><option>少し元気がない</option><option>心配</option></select></label>
+<label>メモ<textarea id="lifeMemo" placeholder="散歩中の様子、排泄、睡眠など"></textarea></label>
+<button id="saveLifeBtn" class="primary">🌿 記録を保存</button>
+</div>
+<div class="card section-card"><div class="section-title"><h3>今日のまとめ</h3><span id="lifeScore" class="summary-badge">記録なし</span></div><div id="lifeSummary" class="life-summary"></div></div>
+<div class="card section-card"><div class="section-title"><h3>生活記録一覧</h3><button id="clearLifeBtn" class="text-btn">全削除</button></div><div id="lifeList" class="list"></div></div>
+</section>
+<section id="food" class="screen">
         <div class="screen-head"><h2>🍚 食事・フード</h2><p>毎日のごはんと在庫をペットごとに管理</p></div>
 
         <div class="card section-card">

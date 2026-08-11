@@ -2,6 +2,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"activePet":null,"health":[],"events":[]}');
+state.lifeRecords ||= [];
 state.foodProfiles ||= []; state.meals ||= [];
 
 
@@ -978,11 +979,20 @@ window.deleteMeal=id=>{
 };
 
 
+
+function currentLifePetId(){const s=$("#lifePet");return s?.value?Number(s.value):(activePet()?.id||null)}
+function renderLifePetOptions(){const s=$("#lifePet");if(!s)return;const cur=s.value;s.innerHTML=state.pets.length?state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join(""):'<option value="">ペットを先に登録してください</option>';if([...s.options].some(o=>o.value===cur))s.value=cur;else if(activePet())s.value=String(activePet().id)}
+$("#lifePet").onchange=()=>renderLife();
+$("#saveLifeBtn").onclick=()=>{if(!state.pets.length){alert("先にペットを登録してください🐾");go("pets");return;}const petId=currentLifePetId(),date=$("#lifeDate").value||new Date().toISOString().slice(0,10);const r={id:Date.now(),petId,date,walkMinutes:Number($("#walkMinutes").value)||0,walkDistance:Number($("#walkDistance").value)||0,water:Number($("#waterAmount").value)||0,sleep:Number($("#sleepHours").value)||0,pee:Number($("#peeCount").value)||0,poop:$("#poopStatus").value,mood:$("#lifeMood").value,memo:$("#lifeMemo").value.trim()};const idx=state.lifeRecords.findIndex(x=>x.petId===petId&&x.date===date);if(idx>=0)state.lifeRecords[idx]={...state.lifeRecords[idx],...r,id:state.lifeRecords[idx].id};else state.lifeRecords.unshift(r);$("#lifeMemo").value="";save();};
+$("#clearLifeBtn").onclick=()=>{const petId=currentLifePetId(),count=state.lifeRecords.filter(x=>x.petId===petId).length;if(!count){alert("削除する生活記録がありません");return;}if(!confirm(`このペットの生活記録 ${count}件をすべて削除しますか？`))return;state.lifeRecords=state.lifeRecords.filter(x=>x.petId!==petId);save();};
+window.deleteLifeRecord=id=>{state.lifeRecords=state.lifeRecords.filter(x=>x.id!==id);save();};
+function renderLife(){renderLifePetOptions();const petId=currentLifePetId();if(!petId)return;const today=new Date().toISOString().slice(0,10),r=state.lifeRecords.find(x=>x.petId===petId&&x.date===today),summary=$("#lifeSummary"),score=$("#lifeScore");if(!r){score.textContent="記録なし";summary.innerHTML='<div class="empty">今日の記録を入れると、ここにまとめが表示されます 🌿</div>';}else{let p=0;if(r.walkMinutes>0)p++;if(r.water>0)p++;if(r.sleep>0)p++;if(r.pee>0)p++;if(["とても元気","元気","ふつう"].includes(r.mood))p++;score.textContent=`${p}/5`;const w=[];if(r.water===0)w.push("飲水量が未記録");if(r.pee===0)w.push("おしっこ0回");if(["下痢気味","気になる"].includes(r.poop))w.push(`うんち：${r.poop}`);if(["少し元気がない","心配"].includes(r.mood))w.push(`元気：${r.mood}`);summary.innerHTML=`<div class="life-summary-box"><small>🚶 散歩</small><b>${r.walkMinutes}分</b><div>${r.walkDistance}km</div></div><div class="life-summary-box"><small>💧 飲水</small><b>${r.water}ml</b></div><div class="life-summary-box"><small>😴 睡眠</small><b>${r.sleep}時間</b></div><div class="life-summary-box"><small>🚽 排泄</small><b>${r.pee}回</b><div>${r.poop}</div></div>${w.length?`<div class="life-warning">⚠️ ${w.join(" ・ ")}</div>`:""}`;}const a=[...state.lifeRecords].filter(x=>x.petId===petId).sort((a,b)=>b.date.localeCompare(a.date));$("#lifeList").innerHTML=a.length?a.map(r=>`<div class="item"><div><b>${r.date} ・ ${r.mood}</b><div class="life-record-tags"><span class="life-tag">🚶 ${r.walkMinutes}分</span><span class="life-tag">📏 ${r.walkDistance}km</span><span class="life-tag">💧 ${r.water}ml</span><span class="life-tag">😴 ${r.sleep}h</span><span class="life-tag">🚽 ${r.pee}回 / ${r.poop}</span></div>${r.memo?`<div class="meta">📝 ${r.memo}</div>`:""}</div><button class="text-btn" onclick="deleteLifeRecord(${r.id})">削除</button></div>`).join(""):'<div class="empty">生活記録はまだありません 🌿</div>';}
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife();
 }
 renderAll();
 
@@ -993,3 +1003,4 @@ window.addEventListener("resize",()=>{ try{ renderHealth(); }catch(e){} });
 try{if($("#docDate")&&!$("#docDate").value)$("#docDate").value=new Date().toISOString().slice(0,10);}catch(e){}
 
 try{if($("#albumDate")&&!$("#albumDate").value)$("#albumDate").value=new Date().toISOString().slice(0,10);}catch(e){}
+try{if($("#lifeDate")&&!$("#lifeDate").value)$("#lifeDate").value=new Date().toISOString().slice(0,10);}catch(e){}
