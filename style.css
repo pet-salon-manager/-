@@ -477,3 +477,28 @@ body.alt{--bg:#f5fbff;--pink:#8a7cff;--pink2:#c4bbff;background:linear-gradient(
 .emergency-display .phone-link{display:inline-block;margin-top:6px;padding:8px 10px;border-radius:12px;background:#f3efff;color:#695ab4;text-decoration:none;font-weight:800;font-size:12px}
 .emergency-fullscreen{position:fixed!important;inset:0!important;z-index:9999!important;margin:0!important;border-radius:0!important;overflow:auto!important;background:white!important;padding:20px!important}
 @media(max-width:380px){.emergency-grid{grid-template-columns:1fr}}
+
+/* PawPal v11: AI pet assistant */
+.ai-quick{background:linear-gradient(135deg,#f6f1ff,#fff)}
+.ai-card{background:linear-gradient(135deg,#fcf9ff,#fff)}
+.ai-suggestions{display:flex;gap:8px;overflow:auto;padding:4px 0 10px}
+.ai-chip{border:1px solid #e9dffd}
+.ai-answer{min-height:140px}
+.ai-message{
+  padding:15px;border-radius:18px;background:linear-gradient(135deg,#f7f3ff,#fff8fc);
+  border:1px solid #eadff4;line-height:1.7
+}
+.ai-message h4{margin:0 0 8px;font-size:16px}
+.ai-message p{margin:6px 0}
+.ai-bullet{padding:8px 10px;margin:7px 0;border-radius:12px;background:#fff}
+.ai-insights{display:flex;flex-direction:column;gap:9px}
+.ai-insight{
+  padding:12px 13px;border-radius:15px;background:#f8fbff;border:1px solid #e4edf6;
+  font-size:13px;line-height:1.55
+}
+.ai-insight.warn{background:#fff4f4;border-color:#f2d7dc;color:#a8505e}
+.ai-insight.good{background:#f4fff7;border-color:#dcefe2;color:#4d7b5c}
+.ai-disclaimer{
+  margin-top:12px;padding:10px 12px;border-radius:13px;background:#fffaf0;
+  color:#76665e;font-size:11px;line-height:1.5
+}

@@ -1016,11 +1016,142 @@ function renderEmergency(){
 }
 $("#toggleEmergencyViewBtn").onclick=()=>{const card=document.querySelector(".emergency-display-card"),on=card.classList.toggle("emergency-fullscreen");$("#toggleEmergencyViewBtn").textContent=on?"閉じる":"全画面表示";if(on)window.scrollTo({top:0})};
 
+
+function currentAssistantPetId(){
+  const s=$("#assistantPet");
+  return s?.value ? Number(s.value) : (activePet()?.id||null);
+}
+function renderAssistantPetOptions(){
+  const s=$("#assistantPet");
+  if(!s)return;
+  const cur=s.value;
+  s.innerHTML=state.pets.length
+    ? state.pets.map(p=>`<option value="${p.id}">${petEmoji(p.type)} ${p.name}</option>`).join("")
+    : '<option value="">ペットを先に登録してください</option>';
+  if([...s.options].some(o=>o.value===cur))s.value=cur;
+  else if(activePet())s.value=String(activePet().id);
+}
+function assistantPetName(){
+  const id=currentAssistantPetId();
+  return state.pets.find(p=>p.id===id)?.name || "この子";
+}
+function assistantWeights(petId){
+  return state.health
+    .filter(x=>x.petId===petId && x.weight)
+    .map(x=>({date:x.date,weight:Number(x.weight)}))
+    .filter(x=>!Number.isNaN(x.weight))
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .slice(-8);
+}
+function assistantMeals(petId){
+  return (state.meals||[]).filter(x=>x.petId===petId).sort((a,b)=>(b.date+(b.time||"")).localeCompare(a.date+(a.time||"")));
+}
+function assistantLife(petId){
+  return (state.lifeRecords||[]).filter(x=>x.petId===petId).sort((a,b)=>b.date.localeCompare(a.date));
+}
+function assistantEvents(petId){
+  const today=new Date().toISOString().slice(0,10);
+  return state.events.filter(e=>(!e.petId||e.petId===petId)&&e.date>=today&&!e.done).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+}
+function weightSummaryText(petId){
+  const w=assistantWeights(petId);
+  if(!w.length)return "体重記録はまだありません。";
+  if(w.length===1)return `最新体重は ${w[0].weight.toFixed(1)}kg です。`;
+  const first=w[0],last=w[w.length-1],diff=last.weight-first.weight;
+  const dir=diff>0.05?"増加":diff<-0.05?"減少":"ほぼ横ばい";
+  return `最新体重は ${last.weight.toFixed(1)}kg。直近${w.length}件では ${Math.abs(diff).toFixed(1)}kg ${dir}しています。`;
+}
+function foodSummaryText(petId){
+  const today=new Date().toISOString().slice(0,10);
+  const meals=assistantMeals(petId).filter(m=>m.date===today);
+  const f=(state.foodProfiles||[]).find(x=>x.petId===petId);
+  const total=meals.reduce((s,m)=>s+Number(m.amount||0),0);
+  if(!meals.length && !f)return "食事記録はまだありません。";
+  const target=Number(f?.dailyTarget||0);
+  let t=`今日は ${total}g 記録されています。`;
+  if(target>0)t+=` 1日の目安 ${target}g に対して ${Math.round(total/target*100)}% です。`;
+  if(meals.some(m=>["少しだけ","食べなかった"].includes(m.appetite)))t+=" 食欲が少ない記録があります。";
+  return t;
+}
+function lifeSummaryText(petId){
+  const r=assistantLife(petId)[0];
+  if(!r)return "生活記録はまだありません。";
+  return `${r.date}の記録では、散歩${r.walkMinutes||0}分・飲水${r.water||0}ml・睡眠${r.sleep||0}時間・元気は「${r.mood||"未設定"}」です。`;
+}
+function scheduleSummaryText(petId){
+  const ev=assistantEvents(petId).slice(0,3);
+  if(!ev.length)return "今後の予定は登録されていません。";
+  return "次の予定は " + ev.map(e=>`${e.date}${e.time?` ${e.time}`:""}「${e.title}」`).join("、") + " です。";
+}
+function buildAssistantInsights(petId){
+  const out=[];
+  const w=assistantWeights(petId);
+  if(w.length>=2){
+    const diff=w[w.length-1].weight-w[0].weight;
+    if(Math.abs(diff)>=0.5)out.push({type:"warn",text:`⚖️ 直近の体重が ${Math.abs(diff).toFixed(1)}kg ${diff>0?"増え":"減っ"}ています。記録期間や体格も確認してください。`});
+    else out.push({type:"good",text:"⚖️ 直近の体重は大きな変化がありません。"});
+  }
+  const life=assistantLife(petId)[0];
+  if(life){
+    if(["心配","少し元気がない"].includes(life.mood))out.push({type:"warn",text:`🌿 最新の生活記録で「${life.mood}」になっています。`});
+    if(["下痢気味","気になる"].includes(life.poop))out.push({type:"warn",text:`🚽 最新のうんち記録が「${life.poop}」です。`});
+  }
+  const meals=assistantMeals(petId).slice(0,5);
+  if(meals.some(m=>["少しだけ","食べなかった"].includes(m.appetite)))out.push({type:"warn",text:"🍚 最近の食事に、食欲が少ない記録があります。"});
+  const ev=assistantEvents(petId)[0];
+  if(ev){
+    const days=Math.ceil((new Date(ev.date+"T00:00:00")-new Date(new Date().toISOString().slice(0,10)+"T00:00:00"))/86400000);
+    if(days<=7)out.push({type:"good",text:`📅 ${days===0?"今日":days+"日後"}に「${ev.title}」の予定があります。`});
+  }
+  if(!out.length)out.push({type:"good",text:"✨ 今の記録からは、特に強く目立つ変化はありません。"});
+  return out;
+}
+function answerAssistant(kindOrQuestion){
+  const petId=currentAssistantPetId();
+  const name=assistantPetName();
+  const q=(kindOrQuestion||"").toLowerCase();
+  let body="";
+  if(q==="weight"||q.includes("体重")){
+    body=`<div class="ai-bullet">⚖️ ${weightSummaryText(petId)}</div>`;
+  }else if(q==="food"||q.includes("食事")||q.includes("フード")){
+    body=`<div class="ai-bullet">🍚 ${foodSummaryText(petId)}</div>`;
+  }else if(q==="schedule"||q.includes("予定")||q.includes("薬")||q.includes("ワクチン")){
+    body=`<div class="ai-bullet">📅 ${scheduleSummaryText(petId)}</div>`;
+  }else if(q==="care"||q.includes("気をつけ")||q.includes("注意")){
+    body=buildAssistantInsights(petId).map(i=>`<div class="ai-bullet">${i.text}</div>`).join("");
+  }else{
+    body=`
+      <div class="ai-bullet">⚖️ ${weightSummaryText(petId)}</div>
+      <div class="ai-bullet">🍚 ${foodSummaryText(petId)}</div>
+      <div class="ai-bullet">🌿 ${lifeSummaryText(petId)}</div>
+      <div class="ai-bullet">📅 ${scheduleSummaryText(petId)}</div>`;
+  }
+  $("#assistantAnswer").innerHTML=`
+    <div class="ai-message">
+      <h4>🤖 ${name}ちゃんのまとめ</h4>
+      ${body}
+      <div class="ai-disclaimer">これはPawPalに保存された記録の整理です。診断や治療判断はできません。気になる症状がある場合は動物病院に相談してください。</div>
+    </div>`;
+  renderAssistantInsights();
+}
+function renderAssistantInsights(){
+  renderAssistantPetOptions();
+  const box=$("#assistantInsights");if(!box)return;
+  const petId=currentAssistantPetId();
+  if(!petId){box.innerHTML='<div class="empty">ペットを登録してください</div>';return;}
+  const arr=buildAssistantInsights(petId);
+  box.innerHTML=arr.map(i=>`<div class="ai-insight ${i.type}">${i.text}</div>`).join("");
+}
+$("#assistantPet").onchange=()=>{renderAssistantInsights();$("#assistantAnswer").innerHTML='<div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>';};
+$$(".ai-chip").forEach(b=>b.onclick=()=>{const q=b.dataset.aiq;$("#assistantQuestion").value=b.textContent;answerAssistant(q);});
+$("#askAssistantBtn").onclick=()=>{const q=$("#assistantQuestion").value.trim();answerAssistant(q||"summary");};
+$("#clearAssistantBtn").onclick=()=>{$("#assistantQuestion").value="";$("#assistantAnswer").innerHTML='<div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>';};
+
 function renderAll(){
   const p=activePet();
   if(p && !state.activePet) state.activePet=p.id;
   $("#helloPet").textContent=p?`${p.name}ちゃん、今日も元気？ ${petEmoji(p.type)}`:"ペットを登録しよう 🐶";
-  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife(); renderEmergency();
+  renderPets(); renderHealth(); renderEvents(); renderPlaces(); renderProducts(); renderDocuments(); renderAlbum(); renderFood(); renderLife(); renderEmergency(); renderAssistantInsights();
 }
 renderAll();
 

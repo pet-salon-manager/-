@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v10</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v11</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -39,6 +39,7 @@
           <button class="quick card" data-go="food"><span>🍚</span><b>食事</b><small>フード・在庫</small></button>
           <button class="quick card" data-go="life"><span>🚶</span><b>生活</b><small>散歩・排泄・睡眠</small></button>
           <button class="quick card emergency-quick" data-go="emergency"><span>🆘</span><b>緊急</b><small>病院ですぐ見せる</small></button>
+          <button class="quick card ai-quick" data-go="assistant"><span>🤖</span><b>AI</b><small>記録をまとめる</small></button>
           <button class="quick card" data-go="products"><span>🛍️</span><b>商品</b><small>JAN・用品検索</small></button>
         </div>
 
@@ -168,7 +169,42 @@
       
       
       
-      <section id="emergency" class="screen">
+      
+      <section id="assistant" class="screen">
+        <div class="screen-head"><h2>🤖 AIペットアシスタント</h2><p>記録を読み取って、今の様子をわかりやすく整理</p></div>
+
+        <div class="card section-card ai-card">
+          <div class="section-title"><h3>相談するペット</h3><span class="summary-badge">ローカル分析</span></div>
+          <label>ペット<select id="assistantPet"></select></label>
+
+          <div class="ai-suggestions">
+            <button class="chip ai-chip" data-aiq="summary">今日の様子をまとめて</button>
+            <button class="chip ai-chip" data-aiq="weight">最近の体重はどう？</button>
+            <button class="chip ai-chip" data-aiq="food">食事の様子は？</button>
+            <button class="chip ai-chip" data-aiq="schedule">次の予定は？</button>
+            <button class="chip ai-chip" data-aiq="care">気をつけることは？</button>
+          </div>
+
+          <label>質問
+            <textarea id="assistantQuestion" placeholder="例：最近の体重変化と食事の様子を教えて"></textarea>
+          </label>
+          <button id="askAssistantBtn" class="primary">✨ まとめてもらう</button>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-title"><h3>アシスタントの回答</h3><button id="clearAssistantBtn" class="text-btn">クリア</button></div>
+          <div id="assistantAnswer" class="ai-answer">
+            <div class="empty">質問を選ぶか入力すると、記録からまとめます 🤖</div>
+          </div>
+        </div>
+
+        <div class="card section-card">
+          <h3>自動チェック</h3>
+          <div id="assistantInsights" class="ai-insights"></div>
+        </div>
+      </section>
+
+<section id="emergency" class="screen">
         <div class="screen-head emergency-head"><h2>🆘 緊急モード</h2><p>病院や預け先で、必要な情報をすぐ確認</p></div>
 
         <div class="card section-card emergency-card">
