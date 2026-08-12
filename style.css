@@ -1016,3 +1016,13 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .store-admin-login-panel input{width:100%;box-sizing:border-box;margin-top:6px;padding:13px 14px;border:1px solid #efd5e2;border-radius:13px;background:#fffafd;font-size:16px}
 .store-admin-login-panel .primary{width:100%;margin-top:12px}
 #saveCheckedStoresBtn:disabled{opacity:.45;filter:grayscale(.15)}
+
+/* PawPal v20.3 Supabase店舗編集 */
+#adminCloudEditStatus{margin:10px 0 4px}
+.admin-store-row .soft-btn{min-width:72px}
+#adminEditPlaceModal .admin-check-row{
+  display:flex;align-items:center;gap:10px;padding:12px 4px;
+  font-weight:750;color:#634d5e
+}
+#adminEditPlaceModal .admin-check-row input{width:22px;height:22px}
+#deleteCloudStoreBtn{width:100%;margin-top:10px}

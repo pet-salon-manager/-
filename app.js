@@ -465,7 +465,7 @@ async function ensureNearbyPlaces(force=false){
     found=await enrichFromWikidata(found);
     found=await enrichFromWikipedia(found,nearbyUserLocation.lat,nearbyUserLocation.lon);
     found=await enrichMissingAddresses(found);
-    const uniq=mergeWithCustomPlaces(found);
+    const uniq=mergeWithCloudStores(mergeWithCustomPlaces(found));
     applyAllPlaceOverrides(uniq);
     uniq.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
     if(uniq.length){
@@ -474,14 +474,14 @@ async function ensureNearbyPlaces(force=false){
       nearbyPlacesLoaded=true;
       if(status) status.innerHTML=`📍 現在地から50km以内を近い順に表示中：<b>${uniq.length}件</b>`;
     }else{
-      places=mergeWithCustomPlaces([...samplePlaces]);
+      places=mergeWithCloudStores(mergeWithCustomPlaces([...samplePlaces]));
       applyRecommendedOverrides();
       if(status) status.textContent="近くのお店が見つからなかったため、サンプルを表示しています。";
     }
     renderPlaces();
   }catch(e){
     console.warn("nearby places",e);
-    places=mergeWithCustomPlaces([...samplePlaces]);
+    places=mergeWithCloudStores(mergeWithCustomPlaces([...samplePlaces]));
     applyRecommendedOverrides();
     if(status){
       status.textContent=e?.code===1
@@ -1068,7 +1068,7 @@ function renderAdminAllPlaces(){
       <div class="admin-store-info">
         <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}</strong>
         <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
-        <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${escapeHtml(p.source||"PawPal")}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
+        <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${p.cloudStoreId?"☁️ Supabase ・ ":""}${escapeHtml(p.source||"PawPal")}${p.isPublished===false?" ・ 🚫非公開":""}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
       </div>
       <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
     </div>
@@ -1081,26 +1081,52 @@ function renderAdminAllPlaces(){
 function findPlaceByStableKey(key){
   return places.find(p=>placeStableKey(p)===key);
 }
+function adminCloudStatus(text,type=""){
+  const e=$("#adminCloudEditStatus");
+  if(!e)return;
+  e.className="cloud-message"+(type?` ${type}`:"");
+  e.textContent=text||"";
+}
 function openAdminEditPlace(key){
   const p=findPlaceByStableKey(key);
   if(!p)return;
   $("#adminEditPlaceKey").value=key;
   $("#adminEditPlaceName").value=p.name||"";
   $("#adminEditPlaceType").value=["病院","トリミング","ホテル","ペットショップ","その他"].includes(p.type)?p.type:"その他";
+  $("#adminEditPlacePrefecture").value=p.prefecture||p.area||"";
   $("#adminEditPlaceAddress").value=p.address||"";
   $("#adminEditPlacePhone").value=p.phone||"";
-  $("#adminEditPlaceUrl").value=p.url||"";
+  $("#adminEditPlaceUrl").value=p.url||p.website||"";
   $("#adminEditPlaceHours").value=p.hours||"";
   $("#adminEditPlaceNote").value=p.note||"";
+  $("#adminEditPlaceReservationUrl").value=p.reservationUrl||"";
+  $("#adminEditPlaceCoupon").value=p.couponText||p.coupon?.detail||"";
   $("#adminEditPlaceRecommended").checked=!!p.recommended;
-  $("#adminEditPlaceSource").textContent=`取得元：${p.source||"不明"}`;
+  $("#adminEditPlacePublished").checked=p.isPublished!==false;
+  $("#adminEditPlaceSource").textContent=p.cloudStoreId
+    ?`☁️ Supabase店舗マスタ ・ ${p.source||"取得元不明"}`
+    :`取得元：${p.source||"不明"}`;
   $("#adminEditOriginalInfo").innerHTML=`
-    <b>外部取得情報の識別</b><br>
-    ID：${escapeHtml(String(p.id||"なし"))}<br>
+    <b>${p.cloudStoreId?"Supabase店舗":"外部取得情報"}の識別</b><br>
+    ID：${escapeHtml(String(p.externalId||p.id||"なし"))}<br>
     ${Number.isFinite(p.lat)&&Number.isFinite(p.lon)?`位置：${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}<br>`:""}
     ${p.wikidata?`Wikidata：${escapeHtml(p.wikidata)}<br>`:""}
     ${p.wikipediaUrl?`Wikipedia：<a href="${escapeHtml(p.wikipediaUrl)}" target="_blank" rel="noopener">開く</a>`:""}
   `;
+  const saveBtn=$("#saveAdminEditPlaceBtn");
+  const resetBtn=$("#resetAdminEditPlaceBtn");
+  const deleteBtn=$("#deleteCloudStoreBtn");
+  if(p.cloudStoreId){
+    if(saveBtn)saveBtn.textContent="☁️ Supabaseへ保存";
+    if(resetBtn)resetBtn.hidden=true;
+    if(deleteBtn)deleteBtn.hidden=false;
+    adminCloudStatus("運営管理者ログイン中のみSupabaseへ保存・削除できます。");
+  }else{
+    if(saveBtn)saveBtn.textContent="💾 PawPal側に保存";
+    if(resetBtn)resetBtn.hidden=false;
+    if(deleteBtn)deleteBtn.hidden=true;
+    adminCloudStatus("外部取得店舗はこの端末の上書き情報として保存します。");
+  }
   const m=$("#adminEditPlaceModal");
   if(m){m.classList.add("open");m.setAttribute("aria-hidden","false");}
 }
@@ -1108,22 +1134,80 @@ function closeAdminEditPlace(){
   const m=$("#adminEditPlaceModal");
   if(m){m.classList.remove("open");m.setAttribute("aria-hidden","true");}
 }
-function saveAdminEditedPlace(){
+function adminEditValues(p){
+  return {
+    name:$("#adminEditPlaceName").value.trim()||p.name,
+    type:$("#adminEditPlaceType").value,
+    prefecture:$("#adminEditPlacePrefecture").value.trim(),
+    address:$("#adminEditPlaceAddress").value.trim(),
+    phone:$("#adminEditPlacePhone").value.trim(),
+    url:$("#adminEditPlaceUrl").value.trim(),
+    hours:$("#adminEditPlaceHours").value.trim(),
+    note:$("#adminEditPlaceNote").value.trim()||$("#adminEditPlaceType").value,
+    reservationUrl:$("#adminEditPlaceReservationUrl").value.trim(),
+    couponText:$("#adminEditPlaceCoupon").value.trim(),
+    recommended:$("#adminEditPlaceRecommended").checked,
+    isPublished:$("#adminEditPlacePublished").checked
+  };
+}
+async function requireStoreAdminSession(){
+  const client=await ensureStoreClient();
+  const {data:{session},error}=await client.auth.getSession();
+  if(error)throw error;
+  if(!session)throw new Error("ADMIN_LOGIN_REQUIRED");
+  return {client,session};
+}
+async function saveCloudEditedPlace(p,updates){
+  const {client}=await requireStoreAdminSession();
+  const payload={
+    name:updates.name,
+    primary_type:updates.type,
+    prefecture:updates.prefecture,
+    address:updates.address,
+    website:updates.url,
+    phone:updates.phone,
+    business_hours:updates.hours,
+    is_recommended:updates.recommended,
+    coupon_text:updates.couponText,
+    reservation_url:updates.reservationUrl,
+    is_published:updates.isPublished,
+    updated_at:new Date().toISOString()
+  };
+  const {error}=await client.from("pawpal_stores").update(payload).eq("id",p.cloudStoreId);
+  if(error)throw error;
+  adminCloudStatus("☁️ Supabaseへ保存しました。","success");
+  await syncStoreMaster();
+}
+async function saveAdminEditedPlace(){
   const key=$("#adminEditPlaceKey").value;
   const p=findPlaceByStableKey(key);
   if(!p)return;
-  const updates={
-    name:$("#adminEditPlaceName").value.trim()||p.name,
-    type:$("#adminEditPlaceType").value,
-    address:$("#adminEditPlaceAddress").value.trim()||"住所情報なし",
-    phone:$("#adminEditPlacePhone").value.trim(),
-    url:$("#adminEditPlaceUrl").value.trim(),
-    hours:$("#adminEditPlaceHours").value.trim()||"営業時間未登録",
-    note:$("#adminEditPlaceNote").value.trim()||$("#adminEditPlaceType").value,
-    recommended:$("#adminEditPlaceRecommended").checked
+  const updates=adminEditValues(p);
+  if(p.cloudStoreId){
+    try{
+      adminCloudStatus("保存中…");
+      await saveCloudEditedPlace(p,updates);
+      closeAdminEditPlace();
+      alert("店舗情報をSupabaseへ保存しました。");
+    }catch(e){
+      console.error(e);
+      if(String(e?.message||e)==="ADMIN_LOGIN_REQUIRED"){
+        adminCloudStatus("管理者ログインが必要です。","error");
+        alert("先にPawPal運営管理者としてログインしてください。");
+      }else{
+        adminCloudStatus("保存に失敗しました。","error");
+        alert("Supabaseへの保存に失敗しました。");
+      }
+    }
+    return;
+  }
+  const localUpdates={
+    name:updates.name,type:updates.type,address:updates.address||"住所情報なし",
+    phone:updates.phone,url:updates.url,hours:updates.hours||"営業時間未登録",
+    note:updates.note,recommended:updates.recommended
   };
-  storePlaceOverride(p,updates);
-  Object.assign(p,updates,{pawpalEdited:true,emoji:placeTypeEmoji(updates.type)});
+  storePlaceOverride(p,localUpdates);
+  Object.assign(p,localUpdates,{pawpalEdited:true,emoji:placeTypeEmoji(localUpdates.type)});
   closeAdminEditPlace();
   renderPlaces();
   renderAdminRecommendedList();
@@ -1131,10 +1215,29 @@ function saveAdminEditedPlace(){
   const s=$("#adminSaveStatus");
   if(s)s.textContent="✏️ 店舗情報をPawPal側に保存しました";
 }
+async function deleteCloudStore(){
+  const key=$("#adminEditPlaceKey").value;
+  const p=findPlaceByStableKey(key);
+  if(!p?.cloudStoreId)return;
+  if(!confirm(`「${p.name}」をSupabase店舗マスタから削除しますか？\nこの操作は元に戻せません。`))return;
+  try{
+    const {client}=await requireStoreAdminSession();
+    adminCloudStatus("削除中…");
+    const {error}=await client.from("pawpal_stores").delete().eq("id",p.cloudStoreId);
+    if(error)throw error;
+    closeAdminEditPlace();
+    await syncStoreMaster();
+    alert("店舗をSupabaseから削除しました。");
+  }catch(e){
+    console.error(e);
+    if(String(e?.message||e)==="ADMIN_LOGIN_REQUIRED")alert("先に運営管理者としてログインしてください。");
+    else alert("店舗の削除に失敗しました。");
+  }
+}
 function resetAdminEditedPlace(){
   const key=$("#adminEditPlaceKey").value;
   const p=findPlaceByStableKey(key);
-  if(!p)return;
+  if(!p || p.cloudStoreId)return;
   if(!confirm("この店舗のPawPal側の修正を解除しますか？"))return;
   removePlaceOverride(p);
   closeAdminEditPlace();
@@ -2945,7 +3048,63 @@ function initStoreCloud(){
  if(!c.url||!c.key||!window.supabase){storeBadge("未接続");return null}
  try{storeCloudClient=window.supabase.createClient(c.url,c.key);storeBadge("設定済み");return storeCloudClient}catch(e){storeBadge("設定エラー");return null}
 }
-function cloudStore(r){return {id:r.external_id||r.id,name:r.name,type:r.primary_type,prefecture:r.prefecture||"",address:r.address||"",website:r.website||"",phone:r.phone||"",hours:r.business_hours||"",lat:Number(r.latitude),lon:Number(r.longitude),recommended:!!r.is_recommended,coupon:r.coupon_text||"",reservationUrl:r.reservation_url||"",source:r.source_name||"PawPal店舗マスタ",cloudStoreId:r.id}}
+function cloudStore(r){return {
+  id:r.external_id||r.id,
+  externalId:r.external_id||"",
+  name:r.name,
+  type:r.primary_type,
+  prefecture:r.prefecture||"",
+  area:r.prefecture||"",
+  city:"",
+  address:r.address||"",
+  website:r.website||"",
+  url:r.website||"",
+  phone:r.phone||"",
+  hours:r.business_hours||"",
+  note:r.primary_type||"",
+  lat:r.latitude==null?null:Number(r.latitude),
+  lon:r.longitude==null?null:Number(r.longitude),
+  recommended:!!r.is_recommended,
+  couponText:r.coupon_text||"",
+  coupon:r.coupon_text?{title:r.coupon_text,code:"PAWPAL",detail:r.coupon_text}:null,
+  reservationUrl:r.reservation_url||"",
+  source:r.source_name||"PawPal店舗マスタ",
+  isPublished:r.is_published!==false,
+  cloudStoreId:r.id,
+  emoji:placeTypeEmoji(r.primary_type)
+}}
+
+function getCloudStoreCache(){
+  try{
+    const raw=window.pawpalCloudStores || JSON.parse(localStorage.getItem("pawpal_store_master_cache_v20")||"[]");
+    return Array.isArray(raw)?raw:[];
+  }catch(e){return []}
+}
+function cloudStoreForNearby(p){
+  const x={...p,emoji:p.emoji||placeTypeEmoji(p.type)};
+  if(Number.isFinite(x.lat)&&Number.isFinite(x.lon)&&nearbyUserLocation){
+    x.distance=distanceKm(nearbyUserLocation.lat,nearbyUserLocation.lon,x.lat,x.lon);
+  }else{
+    x.distance=null;
+  }
+  return x;
+}
+function mergeWithCloudStores(items){
+  const cloud=getCloudStoreCache()
+    .filter(p=>p.isPublished!==false)
+    .map(cloudStoreForNearby)
+    .filter(p=>!nearbyUserLocation || !Number.isFinite(p.distance) || p.distance<=50);
+  return dedupePlaces([...(items||[]),...cloud]);
+}
+function refreshPlacesWithCloud(){
+  places=mergeWithCloudStores(places.filter(p=>!p.cloudStoreId));
+  applyAllPlaceOverrides(places);
+  places.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
+  if(typeof applyRecommendedOverrides==="function")applyRecommendedOverrides();
+  if(typeof renderPlaces==="function")renderPlaces();
+  if(typeof renderAdminAllPlaces==="function")renderAdminAllPlaces();
+}
+
 async function syncStoreMaster(){
  if(!storeCloudClient&&!initStoreCloud()){alert("Supabase接続設定を先に保存してください。");return}
  storeBadge("同期中…");
@@ -2955,10 +3114,12 @@ async function syncStoreMaster(){
  localStorage.setItem("pawpal_store_master_cache_v20",JSON.stringify(rows));
  window.pawpalCloudStores=rows;
  storeBadge("同期済み "+rows.length+"件");
- if(typeof renderPlaces==="function")renderPlaces();
+ refreshPlacesWithCloud();
 }
 document.addEventListener("DOMContentLoaded",()=>{
  initStoreCloud();
+ window.pawpalCloudStores=getCloudStoreCache();
+ setTimeout(()=>{ if(getCloudStoreCache().length) refreshPlacesWithCloud(); },80);
  document.getElementById("saveStoreCloudBtn")?.addEventListener("click",()=>{
   const url=document.getElementById("storeSupabaseUrl")?.value.trim(),key=document.getElementById("storeSupabaseKey")?.value.trim();
   if(!url||!key){alert("Project URL と Anon Key を入力してください。");return}

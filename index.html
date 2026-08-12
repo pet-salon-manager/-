@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.2" />
+  <link rel="stylesheet" href="style.css?v=20.3" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.2</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.3</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -803,12 +803,12 @@
           <div class="place-detail-emoji">🔐</div>
           <div>
             <h3>PawPal運営管理</h3>
-            <div class="place-detail-meta">⭐ おすすめ店舗の設定・解除</div>
+            <div class="place-detail-meta">☁️ Supabase店舗マスタの追加・編集・公開管理</div>
           </div>
         </div>
         <button id="closePawpalAdminBtn" type="button" class="place-modal-close">×</button>
       </div>
-      <div class="admin-note">スイッチをONにすると「⭐ PawPalおすすめ」、OFFにすると通常店舗に戻ります。この端末に設定を保存します。</div>
+      <div class="admin-note">Supabase店舗は運営管理者ログイン中のみ編集できます。店名・住所・電話・HP・営業時間・予約URL・おすすめ・公開状態を管理できます。</div>
       <div id="adminSaveStatus" class="admin-save-status" aria-live="polite"></div>
 
       <div class="admin-custom-block">
@@ -896,24 +896,33 @@
           <option value="その他">🏪 その他</option>
         </select>
       </label>
+      <label>都道府県<input id="adminEditPlacePrefecture" placeholder="例：静岡県"></label>
       <label>住所<input id="adminEditPlaceAddress"></label>
       <label>電話<input id="adminEditPlacePhone" inputmode="tel"></label>
-      <label>ホームページ<input id="adminEditPlaceUrl" inputmode="url"></label>
+      <label>ホームページ<input id="adminEditPlaceUrl" inputmode="url" placeholder="https://..."></label>
       <label>営業時間<input id="adminEditPlaceHours"></label>
       <label>説明<textarea id="adminEditPlaceNote"></textarea></label>
+      <label>予約URL<input id="adminEditPlaceReservationUrl" inputmode="url" placeholder="https://..."></label>
+      <label>クーポン・特典<input id="adminEditPlaceCoupon" placeholder="例：初回10%OFF"></label>
       <label class="admin-check-row">
         <input id="adminEditPlaceRecommended" type="checkbox">
         ⭐ PawPalおすすめ店舗にする
       </label>
+      <label class="admin-check-row">
+        <input id="adminEditPlacePublished" type="checkbox">
+        🌐 PawPalに公開する
+      </label>
 
       <div class="admin-source-note" id="adminEditOriginalInfo"></div>
+      <div id="adminCloudEditStatus" class="cloud-message"></div>
 
-      <button id="saveAdminEditPlaceBtn" type="button" class="primary">💾 PawPal側に保存</button>
-      <button id="resetAdminEditPlaceBtn" type="button" class="secondary">↩️ PawPalの修正を解除</button>
+      <button id="saveAdminEditPlaceBtn" type="button" class="primary">☁️ 店舗情報を保存</button>
+      <button id="deleteCloudStoreBtn" type="button" class="danger-btn" hidden>🗑️ Supabaseから削除</button>
+      <button id="resetAdminEditPlaceBtn" type="button" class="secondary">↩️ PawPal側の修正を解除</button>
       <button id="closeAdminEditPlaceBottomBtn" type="button" class="place-bottom-close">← 運営管理へ戻る</button>
     </div>
   </div>
 
-  <script src="app.js?v=20.2"></script>
+  <script src="app.js?v=20.3"></script>
 </body>
 </html>
