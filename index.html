@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.1" />
+  <link rel="stylesheet" href="style.css?v=20.2" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.2</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -196,7 +196,31 @@
 <label>Project URL<input id="storeSupabaseUrl" type="url"></label>
 <label>Anon Key<input id="storeSupabaseKey" type="password"></label>
 <div class="store-master-actions"><button id="saveStoreCloudBtn">接続情報を保存</button><button id="syncStoreCloudBtn">店舗マスタを同期</button></div>
-</details></div><div id="shizuokaImportPanel" class="store-import-panel">
+</details></div><div id="storeAdminLoginPanel" class="store-admin-login-panel">
+  <div class="section-title">
+    <h3>🔐 PawPal運営管理者ログイン</h3>
+    <span id="storeAdminAuthBadge" class="summary-badge">未ログイン</span>
+  </div>
+  <div id="storeAdminLoggedOut">
+    <label>メールアドレス
+      <input id="storeAdminEmail" type="email" autocomplete="username" placeholder="管理者メールアドレス">
+    </label>
+    <label>パスワード
+      <input id="storeAdminPassword" type="password" autocomplete="current-password" placeholder="管理者パスワード">
+    </label>
+    <button id="storeAdminLoginBtn" type="button" class="primary">🔑 管理者ログイン</button>
+  </div>
+  <div id="storeAdminLoggedIn" style="display:none">
+    <div class="account-box">
+      <small>運営管理者としてログイン中</small>
+      <b id="storeAdminEmailDisplay"></b>
+    </div>
+    <button id="storeAdminLogoutBtn" type="button" class="danger-wide-btn">ログアウト</button>
+  </div>
+  <div id="storeAdminAuthMessage" class="cloud-message">店舗の追加・編集・削除には管理者ログインが必要です。</div>
+</div>
+
+<div id="shizuokaImportPanel" class="store-import-panel">
   <div class="store-import-title">🗾 静岡県の実店舗取り込み</div>
   <div class="store-import-note">OpenStreetMap / Overpass から静岡県内の候補を取得し、確認後にSupabase店舗マスタへ保存できます。</div>
   <div class="store-import-actions">
@@ -890,6 +914,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20.1"></script>
+  <script src="app.js?v=20.2"></script>
 </body>
 </html>

@@ -3129,6 +3129,11 @@ async function saveCheckedShizuokaStores(){
   if(!rows.length){alert("保存する店舗を選択してください。");return;}
   try{
     const client=await ensureStoreClient();
+    const {data:{session}}=await client.auth.getSession();
+    if(!session){
+      alert("先に「PawPal運営管理者ログイン」からログインしてください。");
+      return;
+    }
     importStatus(`保存中… ${rows.length}件`);
     const payload=rows.map(r=>({
       external_id:r.external_id,
@@ -3156,7 +3161,12 @@ async function saveCheckedShizuokaStores(){
   }catch(e){
     console.error(e);
     importStatus("保存失敗");
-    alert("Supabaseへの保存に失敗しました。管理者書き込み権限は次の設定が必要です。");
+    const msg=e?.message||String(e||"");
+    if(/row-level security|permission|403|401/i.test(msg)){
+      alert("保存が拒否されました。運営管理者アカウントでログインしているか確認してください。");
+    }else{
+      alert("Supabaseへの保存に失敗しました。\n"+msg);
+    }
   }
 }
 
@@ -3166,3 +3176,80 @@ document.addEventListener("DOMContentLoaded",()=>{
   renderShizuokaImportList();
 });
 /* ===== /PawPal v20.1 静岡県 実店舗取り込み ===== */
+
+
+/* ===== PawPal v20.2 店舗運営管理者ログイン ===== */
+function storeAdminAuthMessage(text,type=""){
+  const e=document.getElementById("storeAdminAuthMessage");
+  if(!e)return;
+  e.className="cloud-message"+(type?` ${type}`:"");
+  e.textContent=text;
+}
+function setStoreAdminAuthUI(user){
+  const badge=document.getElementById("storeAdminAuthBadge");
+  const out=document.getElementById("storeAdminLoggedOut");
+  const inn=document.getElementById("storeAdminLoggedIn");
+  const email=document.getElementById("storeAdminEmailDisplay");
+  const saveBtn=document.getElementById("saveCheckedStoresBtn");
+  if(user){
+    if(badge)badge.textContent="ログイン済み";
+    if(out)out.style.display="none";
+    if(inn)inn.style.display="";
+    if(email)email.textContent=user.email||"管理者";
+    if(saveBtn){saveBtn.disabled=false;saveBtn.title="";}
+    storeAdminAuthMessage("管理者としてログインしています。店舗マスタへ保存できます。","success");
+  }else{
+    if(badge)badge.textContent="未ログイン";
+    if(out)out.style.display="";
+    if(inn)inn.style.display="none";
+    if(email)email.textContent="";
+    if(saveBtn){saveBtn.disabled=true;saveBtn.title="管理者ログインが必要です";}
+    storeAdminAuthMessage("店舗の追加・編集・削除には管理者ログインが必要です。");
+  }
+}
+async function refreshStoreAdminAuth(){
+  try{
+    const client=await ensureStoreClient();
+    const {data:{session},error}=await client.auth.getSession();
+    if(error)throw error;
+    setStoreAdminAuthUI(session?.user||null);
+  }catch(e){
+    setStoreAdminAuthUI(null);
+  }
+}
+async function loginStoreAdmin(){
+  const email=document.getElementById("storeAdminEmail")?.value.trim();
+  const password=document.getElementById("storeAdminPassword")?.value||"";
+  if(!email||!password){
+    alert("管理者メールアドレスとパスワードを入力してください。");
+    return;
+  }
+  try{
+    const client=await ensureStoreClient();
+    storeAdminAuthMessage("ログイン中…");
+    const {data,error}=await client.auth.signInWithPassword({email,password});
+    if(error)throw error;
+    document.getElementById("storeAdminPassword").value="";
+    setStoreAdminAuthUI(data.user||data.session?.user||null);
+    alert("PawPal運営管理者としてログインしました。");
+  }catch(e){
+    console.error(e);
+    setStoreAdminAuthUI(null);
+    storeAdminAuthMessage("ログインできませんでした。メールアドレスまたはパスワードを確認してください。","error");
+    alert("管理者ログインに失敗しました。");
+  }
+}
+async function logoutStoreAdmin(){
+  try{
+    const client=await ensureStoreClient();
+    await client.auth.signOut();
+  }catch(e){console.warn(e);}
+  setStoreAdminAuthUI(null);
+  alert("管理者ログアウトしました。");
+}
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("storeAdminLoginBtn")?.addEventListener("click",loginStoreAdmin);
+  document.getElementById("storeAdminLogoutBtn")?.addEventListener("click",logoutStoreAdmin);
+  setTimeout(refreshStoreAdminAuth,150);
+});
+/* ===== /PawPal v20.2 店舗運営管理者ログイン ===== */

@@ -1009,3 +1009,10 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .store-import-item strong{display:block;color:#5e4858}
 .store-import-meta{font-size:12px;line-height:1.45;color:#8b7685;margin-top:3px;word-break:break-word}
 .store-import-empty{padding:16px;text-align:center;color:#9a8694;background:#fff9fc;border-radius:14px}
+
+/* PawPal v20.2 運営管理者ログイン */
+.store-admin-login-panel{margin:14px 0;padding:16px;border:1px solid #f0cfe0;border-radius:20px;background:#fff}
+.store-admin-login-panel label{display:block;margin-top:10px;font-weight:700;color:#65505f}
+.store-admin-login-panel input{width:100%;box-sizing:border-box;margin-top:6px;padding:13px 14px;border:1px solid #efd5e2;border-radius:13px;background:#fffafd;font-size:16px}
+.store-admin-login-panel .primary{width:100%;margin-top:12px}
+#saveCheckedStoresBtn:disabled{opacity:.45;filter:grayscale(.15)}
