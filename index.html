@@ -13,7 +13,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.7</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.8</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -175,6 +175,7 @@
           <button class="chip place-filter" data-filter="トリミング">✂️ トリミング</button>
           <button class="chip place-filter" data-filter="ホテル">🏨 ホテル</button>
           <button class="chip place-filter" data-filter="お気に入り">❤️ お気に入り</button>
+            <button class="chip place-filter" data-filter="おすすめ">⭐ おすすめ</button>
         </div>
 
         <div id="placeList" class="place-list"></div>
@@ -664,6 +665,12 @@
         <a id="placePhoneBtn" class="place-action-btn" href="#">📞 電話</a>
         <a id="placeMapBtn" class="place-action-btn" href="#" target="_blank" rel="noopener">🗺️ 地図</a>
         <a id="placeWebBtn" class="place-action-btn" href="#" target="_blank" rel="noopener">🌐 Web</a>
+      </div>
+
+      <div class="place-monetize-box">
+        <div id="placeRecommendedBanner" class="place-recommended-banner" hidden>⭐ PawPalおすすめ店舗</div>
+        <button id="placeReserveBtn" type="button" class="primary">📅 予約する</button>
+        <button id="placeCouponBtn" type="button" class="secondary">🎫 クーポンを見る</button>
       </div>
 
       <div class="place-toggle-grid">

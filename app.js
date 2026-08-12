@@ -5,6 +5,8 @@ const state = JSON.parse(localStorage.getItem("pawpalState") || '{"pets":[],"act
 state.products ||= [];
 state.placePrefs ||= {};
 state.placeMemos ||= {};
+state.placeReservations ||= [];
+state.savedCoupons ||= [];
 state.purchaseHistory ||= [];
 state.emergencyProfiles ||= [];
 state.lifeRecords ||= [];
@@ -116,8 +118,8 @@ async function removeAlbumItem(id){
 
 
 const samplePlaces = [
-  {id:"sakura-vet",name:"さくら動物病院",type:"病院",area:"東京都",city:"世田谷区",emoji:"🏥",note:"一般診療・予防接種",hours:"9:00〜12:00 / 16:00〜19:00",phone:"0312345678",address:"東京都世田谷区（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("さくら動物病院 東京都")},
-  {id:"happy-trim",name:"ハッピートリミング",type:"トリミング",area:"神奈川県",city:"横浜市",emoji:"✂️",note:"小型犬・猫対応",hours:"10:00〜18:00",phone:"0451234567",address:"神奈川県横浜市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("ハッピートリミング 神奈川県")},
+  {id:"sakura-vet",recommended:true,coupon:{title:"初回相談 10%OFF",code:"PAWPAL10",detail:"初回利用時に提示してください。"},name:"さくら動物病院",type:"病院",area:"東京都",city:"世田谷区",emoji:"🏥",note:"一般診療・予防接種",hours:"9:00〜12:00 / 16:00〜19:00",phone:"0312345678",address:"東京都世田谷区（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("さくら動物病院 東京都")},
+  {id:"happy-trim",recommended:true,coupon:{title:"トリミング 500円OFF",code:"PAW500",detail:"5,000円以上のメニューで利用できます。"},name:"ハッピートリミング",type:"トリミング",area:"神奈川県",city:"横浜市",emoji:"✂️",note:"小型犬・猫対応",hours:"10:00〜18:00",phone:"0451234567",address:"神奈川県横浜市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("ハッピートリミング 神奈川県")},
   {id:"sunny-hotel",name:"わんこホテル Sunny",type:"ホテル",area:"静岡県",city:"静岡市",emoji:"🏨",note:"一時預かり・宿泊",hours:"8:00〜20:00",phone:"0541234567",address:"静岡県静岡市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("わんこホテル Sunny 静岡県")},
   {id:"midori-vet",name:"みどり動物クリニック",type:"病院",area:"山梨県",city:"甲府市",emoji:"🏥",note:"犬・猫・小動物",hours:"9:00〜18:00",phone:"0551234567",address:"山梨県甲府市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("みどり動物クリニック 山梨県")},
   {id:"paw-spa",name:"Paw Spa",type:"トリミング",area:"長野県",city:"長野市",emoji:"🫧",note:"シャンプー・カット",hours:"10:00〜18:00",phone:"0261234567",address:"長野県長野市（サンプル）",url:"https://www.google.com/search?q="+encodeURIComponent("Paw Spa 長野県")}
@@ -699,6 +701,7 @@ function renderPlaces(){
     const matchFilter=
       placeFilter==="すべて" ||
       (placeFilter==="お気に入り" && pref.favorite) ||
+      (placeFilter==="おすすめ" && x.recommended) ||
       x.type===placeFilter;
     const text=`${x.name}${x.area}${x.city||""}${x.type}${x.note}`.toLowerCase();
     return matchFilter && (!q || text.includes(q));
@@ -706,7 +709,7 @@ function renderPlaces(){
 
   $("#placeList").innerHTML=arr.length?arr.map(x=>{
     const pref=placePref(x.id);
-    return `<div class="place-card">
+    return `<div class="place-card ${x.recommended?"recommended":""}">
       <div class="place-card-row">
         <div class="place-card-main">
           <div class="place-card-emoji">${x.emoji}</div>
@@ -716,6 +719,7 @@ function renderPlaces(){
             ${Number.isFinite(x.distance)?`<div class="place-distance">📏 約 ${x.distance.toFixed(1)} km</div>`:""}
             <div class="place-card-badges">
               <span class="place-badge">${escapeHtml(x.type)}</span>
+              ${x.recommended?'<span class="place-badge recommended">⭐ おすすめ</span>':""}
               ${pref.favorite?'<span class="place-badge favorite">❤️ お気に入り</span>':""}
               ${pref.visited?'<span class="place-badge visited">✅ 行った</span>':""}
             </div>
@@ -779,6 +783,9 @@ function openPlaceDetail(id){
   $("#placeFavoriteBtn").textContent=pref.favorite?"💔 お気に入り解除":"❤️ お気に入り";
   $("#placeVisitedBtn").textContent=pref.visited?"↩️ 行ったを解除":"✅ 行った";
   $("#placeMemoInput").value=state.placeMemos[id]||"";
+  $("#placeRecommendedBanner").hidden=!p.recommended;
+  $("#placeCouponBtn").style.display=p.coupon?"":"none";
+
 
   $("#placeDetailModal").classList.add("open");
   $("#placeDetailModal").setAttribute("aria-hidden","false");
@@ -828,6 +835,86 @@ $("#savePlaceMemoBtn").onclick=()=>{
   $("#savePlaceMemoBtn").textContent="✅ 保存しました";
   setTimeout(()=>$("#savePlaceMemoBtn").textContent="💾 メモを保存",900);
 };
+
+
+function openReservation(){
+  if(!currentPlaceId)return;
+  const p=places.find(x=>x.id===currentPlaceId);if(!p)return;
+  $("#reservationPlaceName").textContent=p.name;
+  $("#reservationDate").value="";
+  $("#reservationTime").value="";
+  $("#reservationNote").value="";
+  $("#reservationModal").classList.add("open");
+  $("#reservationModal").setAttribute("aria-hidden","false");
+}
+function closeReservation(){
+  $("#reservationModal").classList.remove("open");
+  $("#reservationModal").setAttribute("aria-hidden","true");
+}
+function openCoupon(){
+  if(!currentPlaceId)return;
+  const p=places.find(x=>x.id===currentPlaceId);if(!p||!p.coupon)return;
+  $("#couponPlaceName").textContent=p.name;
+  $("#couponBody").innerHTML=`
+    <div class="coupon-title">${escapeHtml(p.coupon.title)}</div>
+    <div>${escapeHtml(p.coupon.detail||"")}</div>
+    <div class="coupon-code">${escapeHtml(p.coupon.code)}</div>
+    <div class="meta">店頭提示を想定したサンプルクーポンです。</div>
+  `;
+  $("#couponModal").classList.add("open");
+  $("#couponModal").setAttribute("aria-hidden","false");
+}
+function closeCoupon(){
+  $("#couponModal").classList.remove("open");
+  $("#couponModal").setAttribute("aria-hidden","true");
+}
+
+$("#placeReserveBtn").onclick=openReservation;
+$("#placeCouponBtn").onclick=openCoupon;
+
+$("#saveReservationBtn").onclick=()=>{
+  if(!currentPlaceId)return;
+  const p=places.find(x=>x.id===currentPlaceId);if(!p)return;
+  const date=$("#reservationDate").value;
+  const time=$("#reservationTime").value;
+  const note=$("#reservationNote").value.trim();
+  if(!date){
+    $("#saveReservationBtn").textContent="⚠️ 希望日を選んでください";
+    setTimeout(()=>$("#saveReservationBtn").textContent="📅 予約希望を保存",1200);
+    return;
+  }
+  state.placeReservations.push({
+    id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),
+    placeId:p.id,placeName:p.name,date,time,note,
+    createdAt:new Date().toISOString(),status:"下書き"
+  });
+  save();
+  $("#saveReservationBtn").textContent="✅ 保存しました";
+  setTimeout(()=>{closeReservation();$("#saveReservationBtn").textContent="📅 予約希望を保存";},900);
+};
+
+$("#useCouponBtn").onclick=()=>{
+  if(!currentPlaceId)return;
+  const p=places.find(x=>x.id===currentPlaceId);if(!p||!p.coupon)return;
+  const exists=state.savedCoupons.some(x=>x.placeId===p.id&&x.code===p.coupon.code);
+  if(!exists){
+    state.savedCoupons.push({
+      placeId:p.id,placeName:p.name,title:p.coupon.title,
+      code:p.coupon.code,savedAt:new Date().toISOString()
+    });
+    save();
+  }
+  $("#useCouponBtn").textContent="✅ 保存しました";
+  setTimeout(()=>$("#useCouponBtn").textContent="🎟️ クーポンを保存",900);
+};
+
+$("#closeReservationBtn").onclick=closeReservation;
+$("#closeReservationBottomBtn").onclick=closeReservation;
+$("#reservationModal").addEventListener("click",e=>{if(e.target.id==="reservationModal")closeReservation();});
+
+$("#closeCouponBtn").onclick=closeCoupon;
+$("#closeCouponBottomBtn").onclick=closeCoupon;
+$("#couponModal").addEventListener("click",e=>{if(e.target.id==="couponModal")closeCoupon();});
 
 $("#closePlaceDetailBtn").onclick=closePlaceDetail;
 $("#closePlaceDetailBottomBtn").onclick=closePlaceDetail;

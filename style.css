@@ -850,3 +850,21 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .place-distance{font-size:11px;font-weight:800;color:#c15f8e;margin-top:5px}
 .place-source{font-size:9px;color:#9b8c98;margin-top:7px}
 #nearbyPlaceStatus{margin:0 0 12px}
+
+/* PawPal v18.8 monetization foundation */
+.place-recommended-banner{
+  border-radius:14px;padding:10px 12px;margin-bottom:8px;
+  background:#fff6d8;color:#8a6a00;font-weight:900;text-align:center
+}
+.place-monetize-box{display:grid;gap:8px;margin:10px 0 12px}
+.place-card.recommended{border:2px solid #f0cf68;box-shadow:0 8px 24px rgba(193,146,0,.10)}
+.place-badge.recommended{background:#fff5cf;color:#8a6a00}
+.coupon-card{
+  border:2px dashed #e18ab4;background:#fff7fb;border-radius:18px;
+  padding:18px;margin:14px 0;text-align:center
+}
+.coupon-title{font-size:20px;font-weight:900;color:#b84f82;margin-bottom:8px}
+.coupon-code{
+  font-family:monospace;font-size:18px;letter-spacing:2px;
+  padding:10px;border-radius:12px;background:#fff;margin:12px 0
+}
