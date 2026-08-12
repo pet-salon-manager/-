@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=18.9" />
+  <link rel="stylesheet" href="style.css?v=18.9.1" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.9</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.9.1</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -168,6 +168,12 @@
 
         <button id="searchNearbyPlacesBtn" type="button" class="primary" style="width:100%;margin:10px 0 8px">📍 現在地から近いお店を更新</button>
         <div id="nearbyPlaceStatus" class="result-box">お店画面を開くと、現在地から近い順に検索します。</div>
+
+        <button id="pawpalAdminBtn" type="button" class="admin-open-btn admin-open-prominent">
+          ⚙️ PawPal運営管理
+          <small>⭐ おすすめ店舗の設定・解除</small>
+        </button>
+
 
         <div class="chips place-chips">
           <button class="chip place-filter active" data-filter="すべて">すべて</button>
@@ -752,11 +758,12 @@
         <button id="closePawpalAdminBtn" type="button" class="place-modal-close">×</button>
       </div>
       <div class="admin-note">スイッチをONにすると「⭐ PawPalおすすめ」、OFFにすると通常店舗に戻ります。この端末に設定を保存します。</div>
+      <div id="adminSaveStatus" class="admin-save-status" aria-live="polite"></div>
       <div id="adminRecommendedList" class="admin-store-list"></div>
       <button id="closePawpalAdminBottomBtn" type="button" class="place-bottom-close">← お店画面に戻る</button>
     </div>
   </div>
 
-  <script src="app.js?v=18.9"></script>
+  <script src="app.js?v=18.9.1"></script>
 </body>
 </html>

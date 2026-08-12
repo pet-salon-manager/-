@@ -910,3 +910,32 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 }
 .admin-switch input:checked + .admin-slider{background:#ff78b4}
 .admin-switch input:checked + .admin-slider:before{transform:translateX(22px)}
+
+/* v18.9.1 visible operator control */
+.admin-open-prominent{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  margin:12px 0 16px;
+  min-height:74px;
+  background:linear-gradient(180deg,#fff,#fff6fb);
+  border:2px solid #f4cfe1;
+  color:#694e61;
+  font-size:18px;
+}
+.admin-open-prominent small{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  color:#a56d8b;
+}
+.admin-save-status{
+  min-height:22px;
+  margin:0 0 8px;
+  text-align:center;
+  color:#b74f82;
+  font-weight:800;
+  font-size:13px;
+}

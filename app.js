@@ -231,16 +231,19 @@ async function ensureNearbyPlaces(force=false){
     uniq.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
     if(uniq.length){
       places=uniq;
+      applyRecommendedOverrides();
       nearbyPlacesLoaded=true;
       if(status) status.innerHTML=`📍 現在地から約15km以内を近い順に表示中：<b>${uniq.length}件</b>`;
     }else{
       places=[...samplePlaces];
+      applyRecommendedOverrides();
       if(status) status.textContent="近くのお店が見つからなかったため、サンプルを表示しています。";
     }
     renderPlaces();
   }catch(e){
     console.warn("nearby places",e);
     places=[...samplePlaces];
+    applyRecommendedOverrides();
     if(status){
       status.textContent=e?.code===1
         ?"位置情報が許可されていません。Safariで位置情報を許可すると近い順に表示できます。"
@@ -715,10 +718,15 @@ function setPlaceRecommended(id,value){
   if(p)p.recommended=!!value;
   renderPlaces();
   renderAdminRecommendedList();
-  if(currentPlace && currentPlace.id===id){
-    currentPlace=p||currentPlace;
+  if(currentPlaceId===id){
     const banner=$("#placeRecommendedBanner");
-    if(banner)banner.hidden=!currentPlace.recommended;
+    if(banner)banner.hidden=!(p&&p.recommended);
+  }
+  const msg=$("#adminSaveStatus");
+  if(msg){
+    msg.textContent=value ? "⭐ おすすめ店舗に設定しました" : "おすすめを解除しました";
+    clearTimeout(window.__adminStatusTimer);
+    window.__adminStatusTimer=setTimeout(()=>{if(msg)msg.textContent="";},1400);
   }
 }
 function renderAdminRecommendedList(){
