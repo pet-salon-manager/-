@@ -969,3 +969,22 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   color:#756b80;font-size:12px;line-height:1.6;word-break:break-word
 }
 .admin-store-info span:last-child{font-size:11px;color:#a1919b}
+
+/* PawPal v19.2: simultaneous multi-filter selection */
+.multi-filter-help{
+  margin:8px 4px 12px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#fff8fc;
+  color:#8f7385;
+  font-size:12px;
+  line-height:1.55;
+}
+.place-filter{
+  touch-action:manipulation;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.place-filter.active{
+  box-shadow:0 5px 14px rgba(233,105,164,.18);
+  transform:translateY(-1px);
+}

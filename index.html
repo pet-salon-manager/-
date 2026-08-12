@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=19.1" />
+  <link rel="stylesheet" href="style.css?v=19.2" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v19.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v19.2</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -188,6 +188,10 @@
           <button class="chip place-filter" data-filter="ペットショップ">🛍️ ペットショップ</button>
           <button class="chip place-filter" data-filter="お気に入り">❤️ お気に入り</button>
             <button class="chip place-filter" data-filter="おすすめ">⭐ おすすめ</button>
+        </div>
+
+        <div id="placeFilterHelp" class="multi-filter-help">
+          複数選択できます。例：🏨ホテル＋❤️お気に入り / 🏥病院＋⭐おすすめ
         </div>
 
         <div id="placeList" class="place-list"></div>
@@ -869,6 +873,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=19.1"></script>
+  <script src="app.js?v=19.2"></script>
 </body>
 </html>

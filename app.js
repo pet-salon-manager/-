@@ -928,7 +928,7 @@ $("#clearHealthBtn").onclick=()=>{
 };
 
 
-let placeFilter="すべて";
+let activePlaceFilters=new Set();
 let currentPlaceId=null;
 
 function placePref(id){
@@ -1182,11 +1182,16 @@ function renderPlaces(){
   const q=($("#placeSearch")?.value||"").trim().toLowerCase();
   const arr=places.filter(x=>{
     const pref=placePref(x.id);
-    const matchFilter=
-      placeFilter==="すべて" ||
-      (placeFilter==="お気に入り" && pref.favorite) ||
-      (placeFilter==="おすすめ" && x.recommended) ||
-      x.type===placeFilter;
+    const selected=[...activePlaceFilters];
+    const selectedTypes=selected.filter(f=>["病院","トリミング","ホテル","ペットショップ"].includes(f));
+    const wantFavorite=activePlaceFilters.has("お気に入り");
+    const wantRecommended=activePlaceFilters.has("おすすめ");
+
+    // 種類同士は OR、状態（お気に入り・おすすめ）は AND 条件
+    const typeMatch=selectedTypes.length===0 || selectedTypes.includes(x.type);
+    const favoriteMatch=!wantFavorite || !!pref.favorite;
+    const recommendedMatch=!wantRecommended || !!x.recommended;
+    const matchFilter=typeMatch && favoriteMatch && recommendedMatch;
     const text=`${x.name}${x.area}${x.city||""}${x.type}${x.note}`.toLowerCase();
     return matchFilter && (!q || text.includes(q));
   });
@@ -1285,14 +1290,32 @@ window.openPlaceDetail=openPlaceDetail;
 
 $("#placeSearch").oninput=renderPlaces;
 $("#searchNearbyPlacesBtn").onclick=()=>ensureNearbyPlaces(true);
+function syncPlaceFilterChips(){
+  document.querySelectorAll(".place-filter").forEach(c=>{
+    const f=c.dataset.filter;
+    const on=f==="すべて" ? activePlaceFilters.size===0 : activePlaceFilters.has(f);
+    c.classList.toggle("active",on);
+    c.setAttribute("aria-pressed",on?"true":"false");
+  });
+}
+
 document.querySelectorAll(".place-filter").forEach(c=>{
   c.onclick=()=>{
-    document.querySelectorAll(".place-filter").forEach(x=>x.classList.remove("active"));
-    c.classList.add("active");
-    placeFilter=c.dataset.filter;
+    const f=c.dataset.filter;
+
+    if(f==="すべて"){
+      activePlaceFilters.clear();
+    }else if(activePlaceFilters.has(f)){
+      activePlaceFilters.delete(f);
+    }else{
+      activePlaceFilters.add(f);
+    }
+
+    syncPlaceFilterChips();
     renderPlaces();
   };
 });
+syncPlaceFilterChips();
 
 $("#placeFavoriteBtn").onclick=()=>{
   if(!currentPlaceId)return;
