@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.4" />
+  <link rel="stylesheet" href="style.css?v=20.5" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.4</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.5</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -826,6 +826,31 @@
           次回の検索でもPawPal側の修正を優先表示します。
         </div>
         <input id="adminPlaceSearch" class="admin-search" placeholder="店名・住所・種類で検索">
+      <div class="admin-store-filter-panel">
+        <div class="admin-store-filter-title">🔎 管理フィルター</div>
+        <div class="admin-store-filter-chips">
+          <button id="adminStoreFilterAll" type="button" class="admin-filter-chip active">すべて</button>
+          <button id="adminStoreFilterMissing" type="button" class="admin-filter-chip">⚠️ 未入力あり</button>
+          <button id="adminStoreFilterRecommended" type="button" class="admin-filter-chip">⭐ おすすめ</button>
+          <button id="adminStoreFilterPublished" type="button" class="admin-filter-chip">🌐 公開中</button>
+          <button id="adminStoreFilterHidden" type="button" class="admin-filter-chip">🚫 非公開</button>
+        </div>
+        <div class="admin-store-filter-selects">
+          <select id="adminStoreTypeFilter">
+            <option value="">すべての種類</option>
+            <option value="病院">🏥 病院</option>
+            <option value="トリミング">✂️ トリミング</option>
+            <option value="ホテル">🏨 ホテル</option>
+            <option value="ペットショップ">🛍️ ペットショップ</option>
+            <option value="その他">その他</option>
+          </select>
+          <select id="adminStorePrefFilter">
+            <option value="">すべての都道府県</option>
+          </select>
+        </div>
+        <div id="adminStoreFilterSummary" class="admin-filter-summary"></div>
+      </div>
+
         <div id="adminAllPlacesList" class="admin-store-list"></div>
       </div>
 
@@ -923,6 +948,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20.4"></script>
+  <script src="app.js?v=20.5"></script>
 </body>
 </html>

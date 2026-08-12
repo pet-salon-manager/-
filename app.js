@@ -1055,18 +1055,66 @@ function deleteCustomPlaceForm(){
 function adminPlaceHaystack(p){
   return [p.name,p.address,p.area,p.city,p.type,p.phone].filter(Boolean).join(" ").toLowerCase();
 }
+
+let adminStoreFilterMode="all";
+
+function hasMissingStoreInfo(p){
+  const address=String(p.address||"").trim();
+  const phone=String(p.phone||"").trim();
+  const url=String(p.url||p.website||"").trim();
+  return !address || address==="住所情報なし" || address==="住所未登録" || !phone || !url;
+}
+function fillAdminPrefFilter(){
+  const sel=$("#adminStorePrefFilter");
+  if(!sel)return;
+  const current=sel.value;
+  const prefs=[...new Set((places||[])
+    .map(p=>String(p.prefecture||p.area||"").trim())
+    .filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"ja"));
+  sel.innerHTML='<option value="">すべての都道府県</option>'+
+    prefs.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+  if(prefs.includes(current))sel.value=current;
+}
+function setAdminStoreFilter(mode){
+  adminStoreFilterMode=mode||"all";
+  document.querySelectorAll(".admin-filter-chip").forEach(b=>b.classList.remove("active"));
+  const map={all:"#adminStoreFilterAll",missing:"#adminStoreFilterMissing",recommended:"#adminStoreFilterRecommended",published:"#adminStoreFilterPublished",hidden:"#adminStoreFilterHidden"};
+  $(map[adminStoreFilterMode]||map.all)?.classList.add("active");
+  renderAdminAllPlaces();
+}
+function adminStoreMatchesFilter(p){
+  const type=$("#adminStoreTypeFilter")?.value||"";
+  const pref=$("#adminStorePrefFilter")?.value||"";
+  if(type && p.type!==type)return false;
+  if(pref && String(p.prefecture||p.area||"")!==pref)return false;
+  if(adminStoreFilterMode==="missing")return hasMissingStoreInfo(p);
+  if(adminStoreFilterMode==="recommended")return !!p.recommended;
+  if(adminStoreFilterMode==="published")return p.isPublished!==false;
+  if(adminStoreFilterMode==="hidden")return p.isPublished===false;
+  return true;
+}
+
 function renderAdminAllPlaces(){
   const box=$("#adminAllPlacesList");
   if(!box)return;
+  fillAdminPrefFilter();
   const q=($("#adminPlaceSearch")?.value||"").trim().toLowerCase();
   const arr=[...places]
     .filter(p=>!q || adminPlaceHaystack(p).includes(q))
+    .filter(adminStoreMatchesFilter)
     .sort((a,b)=>(a.distance??9999)-(b.distance??9999));
+
+  const summary=$("#adminStoreFilterSummary");
+  if(summary){
+    const missing=(places||[]).filter(hasMissingStoreInfo).length;
+    summary.textContent=`表示 ${arr.length}件 / 全${places.length}件 ・ 未入力あり ${missing}件`;
+  }
 
   box.innerHTML=arr.length?arr.map(p=>`
     <div class="admin-store-row">
       <div class="admin-store-info">
-        <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}</strong>
+        <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}${hasMissingStoreInfo(p)?' <span class="missing-info-badge">⚠️未入力</span>':''}</strong>
         <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
         <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${p.cloudStoreId?"☁️ Supabase店舗 ・ ":""}${escapeHtml(p.source||"PawPal")}${p.isPublished===false?" ・ 🚫非公開":""}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
       </div>
@@ -3031,6 +3079,15 @@ bindEvent("#customPlaceModal","click",e=>{if(e.target.id==="customPlaceModal")cl
 
 
 bindEvent("#adminPlaceSearch","input",renderAdminAllPlaces);
+
+bindEvent("#adminStoreFilterAll","click",()=>setAdminStoreFilter("all"));
+bindEvent("#adminStoreFilterMissing","click",()=>setAdminStoreFilter("missing"));
+bindEvent("#adminStoreFilterRecommended","click",()=>setAdminStoreFilter("recommended"));
+bindEvent("#adminStoreFilterPublished","click",()=>setAdminStoreFilter("published"));
+bindEvent("#adminStoreFilterHidden","click",()=>setAdminStoreFilter("hidden"));
+bindEvent("#adminStoreTypeFilter","change",renderAdminAllPlaces);
+bindEvent("#adminStorePrefFilter","change",renderAdminAllPlaces);
+
 bindClick("#closeAdminEditPlaceBtn",closeAdminEditPlace);
 bindClick("#closeAdminEditPlaceBottomBtn",closeAdminEditPlace);
 bindClick("#saveAdminEditPlaceBtn",saveAdminEditedPlace);

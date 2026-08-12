@@ -1026,3 +1026,15 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 }
 #adminEditPlaceModal .admin-check-row input{width:22px;height:22px}
 #deleteCloudStoreBtn{width:100%;margin-top:10px}
+
+/* PawPal v20.5 運営管理フィルター */
+.admin-store-filter-panel{margin:12px 0 14px;padding:14px;border-radius:18px;background:#fff8fc;border:1px solid #f0d7e4}
+.admin-store-filter-title{font-weight:800;color:#634e5f;margin-bottom:10px}
+.admin-store-filter-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.admin-filter-chip{border:0;white-space:nowrap;border-radius:999px;padding:9px 12px;background:#f7eef4;color:#755f70;font-weight:750}
+.admin-filter-chip.active{background:#ffd9ea;color:#9e4d78}
+.admin-store-filter-selects{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.admin-store-filter-selects select{width:100%;padding:10px;border:1px solid #ead1df;border-radius:12px;background:white;color:#65515f;font-size:14px}
+.admin-filter-summary{font-size:12px;color:#917b89;margin-top:8px}
+.missing-info-badge{display:inline-block;margin-left:5px;padding:2px 7px;border-radius:999px;background:#fff2cc;color:#8a6d17;font-size:11px;vertical-align:middle}
+@media(max-width:480px){.admin-store-filter-selects{grid-template-columns:1fr}}
