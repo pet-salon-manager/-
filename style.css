@@ -939,3 +939,18 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   font-weight:800;
   font-size:13px;
 }
+
+/* PawPal v19.0 multi-source / 50km */
+.source-info-box{
+  margin:8px 0 12px;padding:10px 12px;border-radius:14px;
+  background:#f8f5ff;color:#786d85;font-size:12px;line-height:1.5
+}
+.admin-custom-block{
+  margin:14px 0 18px;padding:14px;border-radius:18px;background:#fff9fc;
+  border:1px solid #f1dce8
+}
+.admin-subtitle{font-weight:900;margin-bottom:10px;color:#694e61}
+.danger-btn{
+  width:100%;margin-top:8px;padding:14px 16px;border:0;border-radius:18px;
+  background:#fff0f0;color:#b54f4f;font-weight:900;font-size:15px
+}

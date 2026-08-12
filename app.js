@@ -138,8 +138,9 @@ function distanceKm(lat1, lon1, lat2, lon2){
 
 function osmPlaceType(tags={}){
   if(tags.amenity==="veterinary") return {type:"病院",emoji:"🏥",note:"動物病院"};
-  if(tags.shop==="pet_grooming") return {type:"トリミング",emoji:"✂️",note:"トリミング"};
-  if(tags.amenity==="animal_boarding") return {type:"ホテル",emoji:"🏨",note:"ペットホテル・預かり"};
+  if(tags.shop==="pet_grooming" || tags.service==="pet_grooming") return {type:"トリミング",emoji:"✂️",note:"トリミング"};
+  if(tags.amenity==="animal_boarding" || tags.amenity==="animal_breeding") return {type:"ホテル",emoji:"🏨",note:"ペットホテル・預かり"};
+  if(tags.shop==="pet") return {type:"ペットショップ",emoji:"🛍️",note:"ペット用品・ペットショップ"};
   return null;
 }
 
@@ -174,17 +175,167 @@ function osmElementToPlace(el){
     address:osmAddress(tags)||"住所情報なし",
     url:tags.website||tags["contact:website"]||"",
     lat,lon,distance:d,
-    source:"OpenStreetMap"
+    source:"OpenStreetMap",
+    wikidata:tags.wikidata||""
   };
 }
 
+
+const PAWPAL_CUSTOM_PLACES_KEY="pawpal_custom_places_v1";
+const PAWPAL_ENRICH_CACHE_KEY="pawpal_place_enrich_cache_v1";
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function getCustomPlaces(){
+  try{return JSON.parse(localStorage.getItem(PAWPAL_CUSTOM_PLACES_KEY)||"[]")||[];}
+  catch(e){return [];}
+}
+function saveCustomPlaces(items){
+  localStorage.setItem(PAWPAL_CUSTOM_PLACES_KEY,JSON.stringify(items||[]));
+}
+function normalizePlaceName(v){
+  return String(v||"").toLowerCase()
+    .replace(/[　\s]/g,"")
+    .replace(/[・･\-‐‑–—ー]/g,"")
+    .replace(/株式会社|有限会社|（株）|\(株\)/g,"");
+}
+function normalizePhone(v){
+  return String(v||"").replace(/\D/g,"");
+}
+function placeDedupeKey(p){
+  const phone=normalizePhone(p.phone);
+  if(phone.length>=8)return "p:"+phone;
+  const name=normalizePlaceName(p.name);
+  if(Number.isFinite(p.lat)&&Number.isFinite(p.lon)){
+    return `g:${name}:${p.lat.toFixed(3)}:${p.lon.toFixed(3)}`;
+  }
+  return `n:${name}:${String(p.address||"").replace(/\s/g,"")}`;
+}
+function mergePlaceData(base,extra){
+  if(!extra)return base;
+  const missing=v=>!v || /情報なし|未登録/.test(String(v));
+  ["address","phone","url","hours","note","area","city"].forEach(k=>{
+    if(missing(base[k]) && !missing(extra[k])) base[k]=extra[k];
+  });
+  if(extra.source && !String(base.source||"").includes(extra.source)){
+    base.source=[base.source,extra.source].filter(Boolean).join(" + ");
+  }
+  return base;
+}
+function dedupePlaces(items){
+  const map=new Map();
+  items.forEach(p=>{
+    const key=placeDedupeKey(p);
+    if(map.has(key)) mergePlaceData(map.get(key),p);
+    else map.set(key,{...p});
+  });
+  return [...map.values()];
+}
+
+function enrichCache(){
+  try{return JSON.parse(localStorage.getItem(PAWPAL_ENRICH_CACHE_KEY)||"{}")||{};}
+  catch(e){return {};}
+}
+function saveEnrichCache(c){
+  try{localStorage.setItem(PAWPAL_ENRICH_CACHE_KEY,JSON.stringify(c));}catch(e){}
+}
+
+async function enrichFromWikidata(items){
+  const qids=[...new Set(items.map(x=>x.wikidata).filter(x=>/^Q\d+$/.test(x)))].slice(0,40);
+  if(!qids.length)return items;
+  try{
+    const url="https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=claims&ids="+encodeURIComponent(qids.join("|"));
+    const res=await fetch(url);
+    if(!res.ok)throw new Error("Wikidata HTTP "+res.status);
+    const data=await res.json();
+    const entities=data.entities||{};
+    const firstValue=(claims,pid)=>{
+      const c=claims?.[pid]?.[0]?.mainsnak?.datavalue?.value;
+      if(typeof c==="string")return c;
+      if(c&&typeof c==="object") return c.text||c.value||"";
+      return "";
+    };
+    items.forEach(p=>{
+      if(!p.wikidata || !entities[p.wikidata])return;
+      const claims=entities[p.wikidata].claims||{};
+      const extra={
+        url:firstValue(claims,"P856"),
+        phone:firstValue(claims,"P1329"),
+        address:firstValue(claims,"P6375"),
+        source:"Wikidata"
+      };
+      mergePlaceData(p,extra);
+    });
+  }catch(e){console.warn("Wikidata補完",e);}
+  return items;
+}
+
+async function enrichMissingAddresses(items){
+  const cache=enrichCache();
+  const targets=items
+    .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&(!p.address || p.address==="住所情報なし"))
+    .sort((a,b)=>(a.distance??9999)-(b.distance??9999))
+    .slice(0,8);
+  for(const p of targets){
+    const key=`${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
+    if(cache[key]){
+      mergePlaceData(p,cache[key]);
+      continue;
+    }
+    try{
+      const u=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p.lat}&lon=${p.lon}&zoom=18&addressdetails=1&accept-language=ja`;
+      const res=await fetch(u,{headers:{"Accept":"application/json"}});
+      if(res.ok){
+        const d=await res.json();
+        const a=d.address||{};
+        const extra={
+          address:d.display_name||"",
+          area:a.province||a.state||"",
+          city:a.city||a.town||a.village||a.ward||"",
+          source:"Nominatim"
+        };
+        cache[key]=extra;
+        mergePlaceData(p,extra);
+        saveEnrichCache(cache);
+      }
+    }catch(e){console.warn("Nominatim補完",e);}
+    await sleep(1100);
+  }
+  return items;
+}
+
+function customPlaceForNearby(p){
+  const lat=Number(p.lat), lon=Number(p.lon);
+  const x={...p,source:"PawPal独自登録",emoji:p.emoji||(
+    p.type==="病院"?"🏥":p.type==="トリミング"?"✂️":p.type==="ホテル"?"🏨":"🛍️"
+  )};
+  if(Number.isFinite(lat)&&Number.isFinite(lon)){
+    x.lat=lat;x.lon=lon;
+    x.distance=nearbyUserLocation?distanceKm(nearbyUserLocation.lat,nearbyUserLocation.lon,lat,lon):null;
+  }else{
+    delete x.lat;delete x.lon;x.distance=null;
+  }
+  return x;
+}
+
+function mergeWithCustomPlaces(items){
+  const custom=getCustomPlaces().map(customPlaceForNearby).filter(p=>{
+    if(!nearbyUserLocation || !Number.isFinite(p.distance))return true;
+    return p.distance<=50;
+  });
+  return dedupePlaces([...items,...custom]);
+}
+
 async function fetchNearbyPlaces(lat,lon){
-  const radius=15000;
-  const query=`[out:json][timeout:20];
+  const radius=50000;
+  const query=`[out:json][timeout:35];
 (
   nwr(around:${radius},${lat},${lon})["amenity"="veterinary"];
   nwr(around:${radius},${lat},${lon})["shop"="pet_grooming"];
+  nwr(around:${radius},${lat},${lon})["service"="pet_grooming"];
   nwr(around:${radius},${lat},${lon})["amenity"="animal_boarding"];
+  nwr(around:${radius},${lat},${lon})["amenity"="animal_breeding"];
+  nwr(around:${radius},${lat},${lon})["shop"="pet"];
 );
 out center tags;`;
   const endpoints=[
@@ -226,23 +377,27 @@ async function ensureNearbyPlaces(force=false){
   try{
     nearbyUserLocation=await getBrowserLocation();
     if(status) status.textContent="🔎 現在地の近くのお店を検索しています…";
-    const found=await fetchNearbyPlaces(nearbyUserLocation.lat,nearbyUserLocation.lon);
-    const uniq=[...new Map(found.map(x=>[x.id,x])).values()];
+    let found=await fetchNearbyPlaces(nearbyUserLocation.lat,nearbyUserLocation.lon);
+    found=dedupePlaces(found);
+    if(status) status.textContent=`🔎 ${found.length}件を取得。住所・HP情報を補完しています…`;
+    found=await enrichFromWikidata(found);
+    found=await enrichMissingAddresses(found);
+    const uniq=mergeWithCustomPlaces(found);
     uniq.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
     if(uniq.length){
       places=uniq;
       applyRecommendedOverrides();
       nearbyPlacesLoaded=true;
-      if(status) status.innerHTML=`📍 現在地から約15km以内を近い順に表示中：<b>${uniq.length}件</b>`;
+      if(status) status.innerHTML=`📍 現在地から50km以内を近い順に表示中：<b>${uniq.length}件</b>`;
     }else{
-      places=[...samplePlaces];
+      places=mergeWithCustomPlaces([...samplePlaces]);
       applyRecommendedOverrides();
       if(status) status.textContent="近くのお店が見つからなかったため、サンプルを表示しています。";
     }
     renderPlaces();
   }catch(e){
     console.warn("nearby places",e);
-    places=[...samplePlaces];
+    places=mergeWithCustomPlaces([...samplePlaces]);
     applyRecommendedOverrides();
     if(status){
       status.textContent=e?.code===1
@@ -729,6 +884,89 @@ function setPlaceRecommended(id,value){
     window.__adminStatusTimer=setTimeout(()=>{if(msg)msg.textContent="";},1400);
   }
 }
+
+function renderCustomPlaceList(){
+  const box=$("#customPlaceList");
+  if(!box)return;
+  const items=getCustomPlaces();
+  box.innerHTML=items.length?items.map(p=>`
+    <div class="admin-store-row">
+      <div class="admin-store-info">
+        <strong>${p.emoji||"🏪"} ${escapeHtml(p.name)}</strong>
+        <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||"住所未登録")}</span>
+      </div>
+      <button type="button" class="soft-btn" data-edit-custom="${p.id}">編集</button>
+    </div>
+  `).join(""):'<div class="empty">独自登録店舗はまだありません</div>';
+  box.querySelectorAll("[data-edit-custom]").forEach(btn=>{
+    btn.onclick=()=>openCustomPlaceForm(btn.dataset.editCustom);
+  });
+}
+
+function openCustomPlaceForm(id=""){
+  const items=getCustomPlaces();
+  const p=items.find(x=>x.id===id)||null;
+  $("#customPlaceModalTitle").textContent=p?"独自店舗を編集":"独自店舗を追加";
+  $("#customPlaceId").value=p?.id||"";
+  $("#customPlaceName").value=p?.name||"";
+  $("#customPlaceType").value=p?.type||"病院";
+  $("#customPlaceAddress").value=p?.address||"";
+  $("#customPlacePhone").value=p?.phone||"";
+  $("#customPlaceUrl").value=p?.url||"";
+  $("#customPlaceHours").value=p?.hours||"";
+  $("#customPlaceNote").value=p?.note||"";
+  $("#customPlaceLat").value=Number.isFinite(Number(p?.lat))?p.lat:"";
+  $("#customPlaceLon").value=Number.isFinite(Number(p?.lon))?p.lon:"";
+  $("#deleteCustomPlaceBtn").hidden=!p;
+  const m=$("#customPlaceModal");
+  if(m){m.classList.add("open");m.setAttribute("aria-hidden","false");}
+}
+function closeCustomPlaceForm(){
+  const m=$("#customPlaceModal");
+  if(m){m.classList.remove("open");m.setAttribute("aria-hidden","true");}
+}
+function refreshPlacesWithCustom(){
+  places=mergeWithCustomPlaces(places.filter(p=>p.source!=="PawPal独自登録"));
+  applyRecommendedOverrides();
+  places.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
+  renderPlaces();
+  renderAdminRecommendedList();
+  renderCustomPlaceList();
+}
+function saveCustomPlaceForm(){
+  const name=$("#customPlaceName").value.trim();
+  if(!name){alert("店名を入力してください");return;}
+  const id=$("#customPlaceId").value||("custom-"+Date.now());
+  const type=$("#customPlaceType").value;
+  const emoji=type==="病院"?"🏥":type==="トリミング"?"✂️":type==="ホテル"?"🏨":"🛍️";
+  const latVal=$("#customPlaceLat").value.trim(), lonVal=$("#customPlaceLon").value.trim();
+  const item={
+    id,name,type,emoji,
+    address:$("#customPlaceAddress").value.trim()||"住所情報なし",
+    phone:$("#customPlacePhone").value.trim(),
+    url:$("#customPlaceUrl").value.trim(),
+    hours:$("#customPlaceHours").value.trim()||"営業時間未登録",
+    note:$("#customPlaceNote").value.trim()||type,
+    lat:latVal===""?null:Number(latVal),
+    lon:lonVal===""?null:Number(lonVal),
+    area:"",city:""
+  };
+  let items=getCustomPlaces();
+  const i=items.findIndex(x=>x.id===id);
+  if(i>=0)items[i]=item; else items.push(item);
+  saveCustomPlaces(items);
+  closeCustomPlaceForm();
+  refreshPlacesWithCustom();
+}
+function deleteCustomPlaceForm(){
+  const id=$("#customPlaceId").value;
+  if(!id)return;
+  if(!confirm("この独自店舗を削除しますか？"))return;
+  saveCustomPlaces(getCustomPlaces().filter(x=>x.id!==id));
+  closeCustomPlaceForm();
+  refreshPlacesWithCustom();
+}
+
 function renderAdminRecommendedList(){
   const box=$("#adminRecommendedList");
   if(!box)return;
@@ -749,6 +987,7 @@ function renderAdminRecommendedList(){
 }
 function openPawpalAdmin(){
   renderAdminRecommendedList();
+  renderCustomPlaceList();
   const m=$("#pawpalAdminModal");
   if(!m)return;
   m.classList.add("open");
@@ -2478,3 +2717,11 @@ bindClick("#pawpalAdminBtn",openPawpalAdmin);
 bindClick("#closePawpalAdminBtn",closePawpalAdmin);
 bindClick("#closePawpalAdminBottomBtn",closePawpalAdmin);
 bindEvent("#pawpalAdminModal","click",e=>{if(e.target.id==="pawpalAdminModal")closePawpalAdmin();});
+
+
+bindClick("#openCustomPlaceFormBtn",()=>openCustomPlaceForm(""));
+bindClick("#closeCustomPlaceBtn",closeCustomPlaceForm);
+bindClick("#closeCustomPlaceBottomBtn",closeCustomPlaceForm);
+bindClick("#saveCustomPlaceBtn",saveCustomPlaceForm);
+bindClick("#deleteCustomPlaceBtn",deleteCustomPlaceForm);
+bindEvent("#customPlaceModal","click",e=>{if(e.target.id==="customPlaceModal")closeCustomPlaceForm();});

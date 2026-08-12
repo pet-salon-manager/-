@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=18.9.1" />
+  <link rel="stylesheet" href="style.css?v=19.0" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.9.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v19.0</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -166,8 +166,13 @@
           <span>🔎</span>
         </div>
 
-        <button id="searchNearbyPlacesBtn" type="button" class="primary" style="width:100%;margin:10px 0 8px">📍 現在地から近いお店を更新</button>
-        <div id="nearbyPlaceStatus" class="result-box">お店画面を開くと、現在地から近い順に検索します。</div>
+        <button id="searchNearbyPlacesBtn" type="button" class="primary" style="width:100%;margin:10px 0 8px">📍 現在地から50km以内のお店を更新</button>
+        <div id="nearbyPlaceStatus" class="result-box">お店画面を開くと、現在地から50km以内を近い順に検索します。</div>
+
+        <div id="placeSourceInfo" class="source-info-box">
+          🔎 OpenStreetMap / Wikidata / Nominatim / PawPal独自登録を統合
+        </div>
+
 
         <button id="pawpalAdminBtn" type="button" class="admin-open-btn admin-open-prominent">
           ⚙️ PawPal運営管理
@@ -180,6 +185,7 @@
           <button class="chip place-filter" data-filter="病院">🏥 病院</button>
           <button class="chip place-filter" data-filter="トリミング">✂️ トリミング</button>
           <button class="chip place-filter" data-filter="ホテル">🏨 ホテル</button>
+          <button class="chip place-filter" data-filter="ペットショップ">🛍️ ペットショップ</button>
           <button class="chip place-filter" data-filter="お気に入り">❤️ お気に入り</button>
             <button class="chip place-filter" data-filter="おすすめ">⭐ おすすめ</button>
         </div>
@@ -759,11 +765,56 @@
       </div>
       <div class="admin-note">スイッチをONにすると「⭐ PawPalおすすめ」、OFFにすると通常店舗に戻ります。この端末に設定を保存します。</div>
       <div id="adminSaveStatus" class="admin-save-status" aria-live="polite"></div>
+
+      <div class="admin-custom-block">
+        <div class="admin-subtitle">🏪 PawPal独自店舗</div>
+        <button id="openCustomPlaceFormBtn" type="button" class="primary">＋ 独自店舗を追加</button>
+        <div id="customPlaceList" class="admin-store-list"></div>
+      </div>
+
       <div id="adminRecommendedList" class="admin-store-list"></div>
       <button id="closePawpalAdminBottomBtn" type="button" class="place-bottom-close">← お店画面に戻る</button>
     </div>
   </div>
 
-  <script src="app.js?v=18.9.1"></script>
+  
+  <div id="customPlaceModal" class="place-modal admin-modal" aria-hidden="true">
+    <div class="place-modal-card admin-card">
+      <div class="place-modal-head">
+        <div class="place-title-wrap">
+          <div class="place-detail-emoji">🏪</div>
+          <div>
+            <h3 id="customPlaceModalTitle">独自店舗を追加</h3>
+            <div class="place-detail-meta">PawPal独自データとして保存</div>
+          </div>
+        </div>
+        <button id="closeCustomPlaceBtn" type="button" class="place-modal-close">×</button>
+      </div>
+
+      <input id="customPlaceId" type="hidden">
+      <label>店名<input id="customPlaceName" placeholder="例：○○動物病院"></label>
+      <label>種類
+        <select id="customPlaceType">
+          <option value="病院">🏥 病院</option>
+          <option value="トリミング">✂️ トリミング</option>
+          <option value="ホテル">🏨 ホテル</option>
+          <option value="ペットショップ">🛍️ ペットショップ</option>
+        </select>
+      </label>
+      <label>住所<input id="customPlaceAddress" placeholder="都道府県・市区町村・番地"></label>
+      <label>電話<input id="customPlacePhone" inputmode="tel" placeholder="例：03-1234-5678"></label>
+      <label>ホームページ<input id="customPlaceUrl" inputmode="url" placeholder="https://..."></label>
+      <label>営業時間<input id="customPlaceHours" placeholder="例：9:00〜18:00"></label>
+      <label>説明<textarea id="customPlaceNote" placeholder="診療内容・サービスなど"></textarea></label>
+      <label>緯度（任意）<input id="customPlaceLat" inputmode="decimal" placeholder="35.6812"></label>
+      <label>経度（任意）<input id="customPlaceLon" inputmode="decimal" placeholder="139.7671"></label>
+
+      <button id="saveCustomPlaceBtn" type="button" class="primary">💾 保存</button>
+      <button id="deleteCustomPlaceBtn" type="button" class="danger-btn" hidden>🗑️ 削除</button>
+      <button id="closeCustomPlaceBottomBtn" type="button" class="place-bottom-close">← 運営管理へ戻る</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=19.0"></script>
 </body>
 </html>
