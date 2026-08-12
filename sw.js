@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v20-7-supabase-admin-only-20260812';
+const CACHE='pawpal-v20-8-auto-enrich-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

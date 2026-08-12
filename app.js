@@ -1169,6 +1169,132 @@ function renderAdminAllPlaces(){
 function findPlaceByStableKey(key){
   return places.find(p=>placeStableKey(p)===key);
 }
+
+function adminEnrichStatus(text,type=""){
+  const e=$("#adminEnrichStatus");
+  if(!e)return;
+  e.className="cloud-message"+(type?` ${type}`:"");
+  e.textContent=text||"";
+}
+function normalizeTextForMatch(s){
+  return String(s||"").toLowerCase()
+    .replace(/[　\s・･\-ー_（）()]/g,"")
+    .replace(/動物病院|どうぶつ病院|アニマルクリニック|ペットクリニック|ペットホテル|トリミングサロン|ペットショップ/g,"");
+}
+function pickBestEnrichCandidate(items,p){
+  if(!items?.length)return null;
+  const target=normalizeTextForMatch(p.name);
+  let best=null,bestScore=-1;
+  for(const x of items){
+    let score=0;
+    const nm=normalizeTextForMatch(x.name||x.display_name||"");
+    if(nm===target)score+=10;
+    else if(nm.includes(target)||target.includes(nm))score+=6;
+    if(p.prefecture && String(x.display_name||"").includes(p.prefecture))score+=2;
+    if(Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&x.lat&&x.lon){
+      const d=distanceKm(p.lat,p.lon,Number(x.lat),Number(x.lon));
+      if(d<0.2)score+=8;
+      else if(d<1)score+=5;
+      else if(d<5)score+=2;
+    }
+    if(score>bestScore){bestScore=score;best=x;}
+  }
+  return best;
+}
+async function fetchNominatimCandidates(p){
+  const q=[p.name,p.address,p.prefecture||p.area].filter(Boolean).join(" ");
+  const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&extratags=1&namedetails=1&q=${encodeURIComponent(q)}`;
+  const r=await fetch(url,{headers:{"Accept":"application/json"}});
+  if(!r.ok)throw new Error("Nominatim "+r.status);
+  return await r.json();
+}
+async function fetchOverpassDetails(p){
+  if(!Number.isFinite(p.lat)||!Number.isFinite(p.lon))return null;
+  const q=`[out:json][timeout:20];(nwr(around:300,${p.lat},${p.lon})["name"];);out tags center;`;
+  const r=await fetch("https://overpass-api.de/api/interpreter",{
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+    body:"data="+encodeURIComponent(q)
+  });
+  if(!r.ok)throw new Error("Overpass "+r.status);
+  const data=await r.json();
+  const target=normalizeTextForMatch(p.name);
+  const candidates=(data.elements||[]).filter(e=>{
+    const nm=normalizeTextForMatch(e.tags?.name||"");
+    return nm && (nm===target || nm.includes(target) || target.includes(nm));
+  });
+  return candidates[0]||null;
+}
+function enrichCandidateFromSources(p,nom,ov){
+  const tags=ov?.tags||{};
+  const ex=nom?.extratags||{};
+  const addr=nom?.display_name||"";
+  const phone=tags.phone||tags["contact:phone"]||ex.phone||ex["contact:phone"]||"";
+  const website=tags.website||tags["contact:website"]||ex.website||ex["contact:website"]||"";
+  const hours=tags.opening_hours||ex.opening_hours||"";
+  const wikidata=tags.wikidata||ex.wikidata||"";
+  const wikipedia=tags.wikipedia||ex.wikipedia||"";
+  return {
+    address: addr && addr!==p.address ? addr : "",
+    phone: phone && phone!==p.phone ? phone : "",
+    website: website && website!==(p.url||p.website) ? website : "",
+    hours: hours && hours!==p.hours ? hours : "",
+    wikidata, wikipedia
+  };
+}
+function renderAdminEnrichResults(c){
+  const host=$("#adminEnrichResults");
+  if(!host)return;
+  const rows=[];
+  if(c.address)rows.push(["住所","adminEnrichAddress",c.address]);
+  if(c.phone)rows.push(["電話","adminEnrichPhone",c.phone]);
+  if(c.website)rows.push(["ホームページ","adminEnrichWebsite",c.website]);
+  if(c.hours)rows.push(["営業時間","adminEnrichHours",c.hours]);
+  if(!rows.length){
+    host.innerHTML='<div class="admin-enrich-empty">新しく補完できる項目は見つかりませんでした。</div>';
+    return;
+  }
+  host.innerHTML=rows.map(([label,id,val])=>`
+    <label class="admin-enrich-row">
+      <input type="checkbox" id="${id}" checked>
+      <span><b>${label}</b><small>${escapeHtml(val)}</small></span>
+    </label>
+  `).join("")+`
+    <button id="adminApplyEnrichBtn" type="button" class="primary">✅ 選択した候補をフォームへ反映</button>
+  `;
+  $("#adminApplyEnrichBtn").onclick=()=>{
+    if(c.address && $("#adminEnrichAddress")?.checked)$("#adminEditPlaceAddress").value=c.address;
+    if(c.phone && $("#adminEnrichPhone")?.checked)$("#adminEditPlacePhone").value=c.phone;
+    if(c.website && $("#adminEnrichWebsite")?.checked)$("#adminEditPlaceUrl").value=c.website;
+    if(c.hours && $("#adminEnrichHours")?.checked)$("#adminEditPlaceHours").value=c.hours;
+    adminEnrichStatus("候補をフォームへ反映しました。内容を確認してからSupabaseへ保存してください。","success");
+  };
+}
+async function findAdminEnrichment(){
+  const key=$("#adminEditPlaceKey")?.value;
+  const p=findPlaceByStableKey(key);
+  if(!p)return;
+  try{
+    adminEnrichStatus("候補を検索中…");
+    $("#adminEnrichResults").innerHTML="";
+    let nom=null,ov=null;
+    try{
+      const n=await fetchNominatimCandidates(p);
+      nom=pickBestEnrichCandidate(n,p);
+    }catch(e){console.warn(e)}
+    try{
+      ov=await fetchOverpassDetails(p);
+    }catch(e){console.warn(e)}
+    const c=enrichCandidateFromSources(p,nom,ov);
+    renderAdminEnrichResults(c);
+    const found=[c.address,c.phone,c.website,c.hours].filter(Boolean).length;
+    adminEnrichStatus(found?`${found}項目の補完候補が見つかりました。`:"補完候補は見つかりませんでした。",found?"success":"");
+  }catch(e){
+    console.error(e);
+    adminEnrichStatus("補完候補の取得に失敗しました。時間をおいて再度お試しください。","error");
+  }
+}
+
 function adminCloudStatus(text,type=""){
   const e=$("#adminCloudEditStatus");
   if(!e)return;
@@ -1177,6 +1303,8 @@ function adminCloudStatus(text,type=""){
 }
 function openAdminEditPlace(key){
   const p=findPlaceByStableKey(key);
+  if($("#adminEnrichResults"))$("#adminEnrichResults").innerHTML="";
+  adminEnrichStatus("");
   if(!p)return;
   $("#adminEditPlaceKey").value=key;
   $("#adminEditPlaceName").value=p.name||"";
@@ -3519,3 +3647,5 @@ document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(refreshStoreAdminAuth,150);
 });
 /* ===== /PawPal v20.2 店舗運営管理者ログイン ===== */
+
+document.addEventListener("DOMContentLoaded",()=>bindEvent("#adminEnrichBtn","click",findAdminEnrichment));
