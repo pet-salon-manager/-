@@ -880,3 +880,33 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   touch-action:manipulation;
 }
 .sub-place-modal{z-index:10040}
+
+/* v18.9 PawPal operator recommended-store controls */
+.admin-open-btn{
+  width:100%; margin:14px 0 18px; padding:16px 18px; border:0; border-radius:22px;
+  font-size:16px; font-weight:800; background:#fff; box-shadow:0 8px 24px rgba(91,68,84,.08);
+  color:#6b5365; touch-action:manipulation;
+}
+.admin-modal{z-index:10060}
+.admin-card{max-height:88vh;overflow:auto}
+.admin-note{
+  padding:14px 16px;margin:4px 0 14px;border-radius:18px;background:#fff5fa;
+  color:#765f70;font-size:14px;line-height:1.6
+}
+.admin-store-list{display:grid;gap:10px;margin-bottom:18px}
+.admin-store-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px;border:1px solid #f0dfe8;border-radius:18px;background:#fff
+}
+.admin-store-info{display:flex;flex-direction:column;gap:4px;min-width:0}
+.admin-store-info strong{font-size:15px}
+.admin-store-info span{font-size:12px;color:#8c7a87}
+.admin-switch{position:relative;width:54px;height:32px;flex:0 0 54px}
+.admin-switch input{opacity:0;width:0;height:0}
+.admin-slider{position:absolute;inset:0;border-radius:999px;background:#ddd;transition:.2s}
+.admin-slider:before{
+  content:"";position:absolute;width:26px;height:26px;left:3px;top:3px;border-radius:50%;
+  background:white;box-shadow:0 2px 6px rgba(0,0,0,.18);transition:.2s
+}
+.admin-switch input:checked + .admin-slider{background:#ff78b4}
+.admin-switch input:checked + .admin-slider:before{transform:translateX(22px)}

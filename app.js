@@ -694,6 +694,66 @@ function placePref(id){
   return state.placePrefs[id];
 }
 
+
+const PAWPAL_RECOMMENDED_KEY="pawpal_recommended_overrides_v1";
+
+function getRecommendedOverrides(){
+  try{return JSON.parse(localStorage.getItem(PAWPAL_RECOMMENDED_KEY)||"{}")||{};}
+  catch(e){return {};}
+}
+function applyRecommendedOverrides(){
+  const o=getRecommendedOverrides();
+  places.forEach(p=>{
+    if(Object.prototype.hasOwnProperty.call(o,p.id)) p.recommended=!!o[p.id];
+  });
+}
+function setPlaceRecommended(id,value){
+  const o=getRecommendedOverrides();
+  o[id]=!!value;
+  localStorage.setItem(PAWPAL_RECOMMENDED_KEY,JSON.stringify(o));
+  const p=places.find(x=>x.id===id);
+  if(p)p.recommended=!!value;
+  renderPlaces();
+  renderAdminRecommendedList();
+  if(currentPlace && currentPlace.id===id){
+    currentPlace=p||currentPlace;
+    const banner=$("#placeRecommendedBanner");
+    if(banner)banner.hidden=!currentPlace.recommended;
+  }
+}
+function renderAdminRecommendedList(){
+  const box=$("#adminRecommendedList");
+  if(!box)return;
+  box.innerHTML=places.map(p=>`
+    <div class="admin-store-row">
+      <div class="admin-store-info">
+        <strong>${p.emoji||"🏪"} ${p.name}</strong>
+        <span>${p.area||""}${p.city?"・"+p.city:""} ・ ${p.type||""}</span>
+      </div>
+      <label class="admin-switch">
+        <input type="checkbox" data-admin-rec="${p.id}" ${p.recommended?"checked":""}>
+        <span class="admin-slider"></span>
+      </label>
+    </div>`).join("");
+  box.querySelectorAll("[data-admin-rec]").forEach(el=>{
+    el.addEventListener("change",()=>setPlaceRecommended(el.dataset.adminRec,el.checked));
+  });
+}
+function openPawpalAdmin(){
+  renderAdminRecommendedList();
+  const m=$("#pawpalAdminModal");
+  if(!m)return;
+  m.classList.add("open");
+  m.setAttribute("aria-hidden","false");
+}
+function closePawpalAdmin(){
+  const m=$("#pawpalAdminModal");
+  if(!m)return;
+  m.classList.remove("open");
+  m.setAttribute("aria-hidden","true");
+}
+applyRecommendedOverrides();
+
 function renderPlaces(){
   const q=($("#placeSearch")?.value||"").trim().toLowerCase();
   const arr=places.filter(x=>{
@@ -2404,3 +2464,9 @@ function bindEvent(selector, eventName, handler){
   const el=$(selector);
   if(el) el.addEventListener(eventName, handler);
 }
+
+
+bindClick("#pawpalAdminBtn",openPawpalAdmin);
+bindClick("#closePawpalAdminBtn",closePawpalAdmin);
+bindClick("#closePawpalAdminBottomBtn",closePawpalAdmin);
+bindEvent("#pawpalAdminModal","click",e=>{if(e.target.id==="pawpalAdminModal")closePawpalAdmin();});
