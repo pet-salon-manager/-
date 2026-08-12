@@ -2966,3 +2966,203 @@ document.addEventListener("DOMContentLoaded",()=>{
  });
  document.getElementById("syncStoreCloudBtn")?.addEventListener("click",syncStoreMaster);
 });
+
+
+/* ===== PawPal v20.1 静岡県 実店舗取り込み ===== */
+let shizuokaImportRows=[];
+
+function escImport(s=""){
+  return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+function importStatus(t){
+  const e=document.getElementById("shizuokaImportStatus");
+  if(e)e.textContent=t;
+}
+function classifyOsmTags(tags={}){
+  const amenity=tags.amenity||"";
+  const shop=tags.shop||"";
+  const office=tags.office||"";
+  const tourism=tags.tourism||"";
+  const craft=tags.craft||"";
+  const name=(tags.name||"").toLowerCase();
+
+  if(amenity==="veterinary") return "病院";
+  if(shop==="pet" || shop==="pet_grooming" || name.includes("ペットショップ")) return "ペットショップ";
+  if(shop==="pet_grooming" || craft==="pet_groomer" || name.includes("トリミング") || name.includes("グルーミング")) return "トリミング";
+  if(tourism==="hotel" && (name.includes("ペット") || name.includes("ドッグ") || name.includes("わん"))) return "ホテル";
+  if(tags["animal_boarding"] || office==="pet_sitting" || name.includes("ペットホテル")) return "ホテル";
+  return "";
+}
+function osmAddress(tags={}){
+  const p=[];
+  if(tags["addr:province"])p.push(tags["addr:province"]);
+  if(tags["addr:city"])p.push(tags["addr:city"]);
+  if(tags["addr:suburb"])p.push(tags["addr:suburb"]);
+  if(tags["addr:quarter"])p.push(tags["addr:quarter"]);
+  if(tags["addr:street"])p.push(tags["addr:street"]);
+  if(tags["addr:housenumber"])p.push(tags["addr:housenumber"]);
+  return p.join("");
+}
+function osmWebsite(tags={}){
+  return tags.website || tags["contact:website"] || tags.url || "";
+}
+function osmPhone(tags={}){
+  return tags.phone || tags["contact:phone"] || "";
+}
+function osmHours(tags={}){
+  return tags.opening_hours || "";
+}
+function osmName(tags={}){
+  return tags["name:ja"] || tags.name || "";
+}
+function osmToCandidate(el){
+  const tags=el.tags||{};
+  const type=classifyOsmTags(tags);
+  if(!type)return null;
+  const lat = el.lat ?? el.center?.lat;
+  const lon = el.lon ?? el.center?.lon;
+  if(lat==null || lon==null)return null;
+  const name=osmName(tags);
+  if(!name)return null;
+  return {
+    external_id:`osm-${el.type}-${el.id}`,
+    name,
+    primary_type:type,
+    prefecture:"静岡県",
+    address:osmAddress(tags),
+    website:osmWebsite(tags),
+    phone:osmPhone(tags),
+    business_hours:osmHours(tags),
+    latitude:Number(lat),
+    longitude:Number(lon),
+    is_recommended:false,
+    coupon_text:"",
+    reservation_url:"",
+    source_name:"OpenStreetMap / Overpass",
+    is_published:true,
+    checked:true
+  };
+}
+function dedupeCandidates(rows){
+  const m=new Map();
+  for(const r of rows){
+    const key=(r.name+"|"+r.latitude.toFixed(5)+"|"+r.longitude.toFixed(5)).toLowerCase();
+    if(!m.has(key))m.set(key,r);
+  }
+  return [...m.values()];
+}
+function renderShizuokaImportList(){
+  const host=document.getElementById("shizuokaImportList");
+  if(!host)return;
+  if(!shizuokaImportRows.length){
+    host.innerHTML='<div class="store-import-empty">店舗候補はまだありません</div>';
+    return;
+  }
+  host.innerHTML=shizuokaImportRows.map((r,i)=>`
+    <label class="store-import-item">
+      <input type="checkbox" data-import-index="${i}" ${r.checked!==false?"checked":""}>
+      <div>
+        <strong>${escImport(r.name)}</strong>
+        <div class="store-import-meta">${escImport(r.primary_type)} ・ ${escImport(r.address||"住所情報なし")}</div>
+        <div class="store-import-meta">📞 ${escImport(r.phone||"未登録")}　🌐 ${escImport(r.website||"未登録")}</div>
+      </div>
+    </label>
+  `).join("");
+  host.querySelectorAll('input[data-import-index]').forEach(cb=>{
+    cb.addEventListener("change",()=>{
+      const i=Number(cb.dataset.importIndex);
+      if(shizuokaImportRows[i])shizuokaImportRows[i].checked=cb.checked;
+    });
+  });
+}
+async function fetchShizuokaCandidates(){
+  importStatus("取得中…");
+  const q=`[out:json][timeout:40];
+area["name"="静岡県"]["boundary"="administrative"]->.a;
+(
+  nwr["amenity"="veterinary"](area.a);
+  nwr["shop"="pet"](area.a);
+  nwr["shop"="pet_grooming"](area.a);
+  nwr["craft"="pet_groomer"](area.a);
+  nwr["animal_boarding"](area.a);
+  nwr["office"="pet_sitting"](area.a);
+);
+out center tags;`;
+  const endpoints=[
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
+  ];
+  let lastErr=null;
+  for(const ep of endpoints){
+    try{
+      const res=await fetch(ep,{
+        method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+        body:"data="+encodeURIComponent(q)
+      });
+      if(!res.ok)throw new Error("HTTP "+res.status);
+      const data=await res.json();
+      shizuokaImportRows=dedupeCandidates((data.elements||[]).map(osmToCandidate).filter(Boolean))
+        .sort((a,b)=>a.primary_type.localeCompare(b.primary_type,"ja")||a.name.localeCompare(b.name,"ja"));
+      renderShizuokaImportList();
+      importStatus(`候補 ${shizuokaImportRows.length}件`);
+      return;
+    }catch(e){lastErr=e;}
+  }
+  console.warn(lastErr);
+  importStatus("取得失敗");
+  alert("静岡県の店舗候補取得に失敗しました。時間をおいてもう一度お試しください。");
+}
+async function ensureStoreClient(){
+  if(typeof initStoreCloud==="function"){
+    const c=storeCloudClient || initStoreCloud();
+    if(c)return c;
+  }
+  if(typeof initStoreCloudClient==="function"){
+    const c=storeCloudClient || initStoreCloudClient();
+    if(c)return c;
+  }
+  throw new Error("Supabase未接続");
+}
+async function saveCheckedShizuokaStores(){
+  const rows=shizuokaImportRows.filter(r=>r.checked!==false);
+  if(!rows.length){alert("保存する店舗を選択してください。");return;}
+  try{
+    const client=await ensureStoreClient();
+    importStatus(`保存中… ${rows.length}件`);
+    const payload=rows.map(r=>({
+      external_id:r.external_id,
+      name:r.name,
+      primary_type:r.primary_type,
+      prefecture:r.prefecture,
+      address:r.address,
+      website:r.website,
+      phone:r.phone,
+      business_hours:r.business_hours,
+      latitude:r.latitude,
+      longitude:r.longitude,
+      is_recommended:false,
+      coupon_text:"",
+      reservation_url:"",
+      source_name:r.source_name,
+      is_published:true,
+      updated_at:new Date().toISOString()
+    }));
+    const {error}=await client.from("pawpal_stores").upsert(payload,{onConflict:"external_id"});
+    if(error)throw error;
+    importStatus(`Supabaseへ保存済み ${rows.length}件`);
+    alert(`${rows.length}件を店舗マスタへ保存しました。`);
+    if(typeof syncStoreMaster==="function")await syncStoreMaster();
+  }catch(e){
+    console.error(e);
+    importStatus("保存失敗");
+    alert("Supabaseへの保存に失敗しました。管理者書き込み権限は次の設定が必要です。");
+  }
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("fetchShizuokaStoresBtn")?.addEventListener("click",fetchShizuokaCandidates);
+  document.getElementById("saveCheckedStoresBtn")?.addEventListener("click",saveCheckedShizuokaStores);
+  renderShizuokaImportList();
+});
+/* ===== /PawPal v20.1 静岡県 実店舗取り込み ===== */

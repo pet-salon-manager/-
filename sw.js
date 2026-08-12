@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v20-0-store-master';
+const CACHE='pawpal-v20-1-shizuoka-import-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

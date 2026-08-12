@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.0" />
+  <link rel="stylesheet" href="style.css?v=20.1" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.0</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.1</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -196,7 +196,18 @@
 <label>Project URL<input id="storeSupabaseUrl" type="url"></label>
 <label>Anon Key<input id="storeSupabaseKey" type="password"></label>
 <div class="store-master-actions"><button id="saveStoreCloudBtn">接続情報を保存</button><button id="syncStoreCloudBtn">店舗マスタを同期</button></div>
-</details></div><div id="placeFilterHelp" class="multi-filter-help">
+</details></div><div id="shizuokaImportPanel" class="store-import-panel">
+  <div class="store-import-title">🗾 静岡県の実店舗取り込み</div>
+  <div class="store-import-note">OpenStreetMap / Overpass から静岡県内の候補を取得し、確認後にSupabase店舗マスタへ保存できます。</div>
+  <div class="store-import-actions">
+    <button id="fetchShizuokaStoresBtn" type="button">🔎 静岡県の店舗候補を取得</button>
+    <button id="saveCheckedStoresBtn" type="button">☁️ 選択店舗をSupabaseへ保存</button>
+  </div>
+  <div id="shizuokaImportStatus" class="store-import-status">未取得</div>
+  <div id="shizuokaImportList" class="store-import-list"></div>
+</div>
+
+<div id="placeFilterHelp" class="multi-filter-help">
           複数選択できます。例：🏨ホテル＋❤️お気に入り / 🏥病院＋⭐おすすめ
         </div>
 
@@ -879,6 +890,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20.0"></script>
+  <script src="app.js?v=20.1"></script>
 </body>
 </html>
