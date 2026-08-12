@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v19-0-multisource-50km-20260812';
+const CACHE='pawpal-v19-1-more-sources-admin-edit-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

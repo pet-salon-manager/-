@@ -954,3 +954,18 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   width:100%;margin-top:8px;padding:14px 16px;border:0;border-radius:18px;
   background:#fff0f0;color:#b54f4f;font-weight:900;font-size:15px
 }
+
+/* v19.1 admin editing for all discovered places */
+.admin-search{
+  width:100%;box-sizing:border-box;margin:8px 0 12px;padding:13px 14px;
+  border:1px solid #ead7e1;border-radius:14px;background:#fff;font-size:15px
+}
+.admin-check-row{
+  display:flex;align-items:center;gap:10px;padding:12px 4px;font-weight:800;color:#6d5565
+}
+.admin-check-row input{width:22px;height:22px}
+.admin-source-note{
+  margin:12px 0;padding:12px 14px;border-radius:14px;background:#f8f5ff;
+  color:#756b80;font-size:12px;line-height:1.6;word-break:break-word
+}
+.admin-store-info span:last-child{font-size:11px;color:#a1919b}

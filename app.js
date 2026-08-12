@@ -184,6 +184,55 @@ function osmElementToPlace(el){
 const PAWPAL_CUSTOM_PLACES_KEY="pawpal_custom_places_v1";
 const PAWPAL_ENRICH_CACHE_KEY="pawpal_place_enrich_cache_v1";
 
+const PAWPAL_PLACE_OVERRIDES_KEY="pawpal_place_overrides_v1";
+
+function getPlaceOverrides(){
+  try{return JSON.parse(localStorage.getItem(PAWPAL_PLACE_OVERRIDES_KEY)||"{}")||{};}
+  catch(e){return {};}
+}
+function savePlaceOverrides(o){
+  localStorage.setItem(PAWPAL_PLACE_OVERRIDES_KEY,JSON.stringify(o||{}));
+}
+function placeStableKey(p){
+  if(!p)return "";
+  if(p.id)return String(p.id);
+  return placeDedupeKey(p);
+}
+function applyPlaceOverrideToOne(p){
+  if(!p)return p;
+  const o=getPlaceOverrides()[placeStableKey(p)];
+  if(!o)return p;
+  ["name","type","address","phone","url","hours","note","recommended"].forEach(k=>{
+    if(Object.prototype.hasOwnProperty.call(o,k))p[k]=o[k];
+  });
+  p.pawpalEdited=true;
+  return p;
+}
+function applyAllPlaceOverrides(items=places){
+  (items||[]).forEach(applyPlaceOverrideToOne);
+  return items;
+}
+function storePlaceOverride(p,updates){
+  const key=placeStableKey(p);
+  if(!key)return;
+  const all=getPlaceOverrides();
+  all[key]={...(all[key]||{}),...updates,updatedAt:new Date().toISOString()};
+  savePlaceOverrides(all);
+}
+function removePlaceOverride(p){
+  const key=placeStableKey(p);
+  const all=getPlaceOverrides();
+  delete all[key];
+  savePlaceOverrides(all);
+}
+function placeTypeEmoji(type){
+  return type==="病院"?"🏥":
+    type==="トリミング"?"✂️":
+    type==="ホテル"?"🏨":
+    type==="ペットショップ"?"🛍️":"🏪";
+}
+
+
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
 function getCustomPlaces(){
@@ -238,6 +287,37 @@ function enrichCache(){
 }
 function saveEnrichCache(c){
   try{localStorage.setItem(PAWPAL_ENRICH_CACHE_KEY,JSON.stringify(c));}catch(e){}
+}
+
+
+async function enrichFromWikipedia(items,lat,lon){
+  try{
+    const url=`https://ja.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=geosearch&ggsprimary=all&ggsnamespace=0&ggsradius=10000&ggslimit=50&ggscoord=${lat}|${lon}&prop=extracts|info&exintro=1&explaintext=1&inprop=url`;
+    const res=await fetch(url);
+    if(!res.ok)throw new Error("Wikipedia HTTP "+res.status);
+    const data=await res.json();
+    const pages=Object.values(data?.query?.pages||{});
+    if(!pages.length)return items;
+
+    const norm=s=>normalizePlaceName(s);
+    items.forEach(p=>{
+      const np=norm(p.name);
+      if(!np)return;
+      const match=pages.find(pg=>{
+        const nt=norm(pg.title||"");
+        return nt && (nt===np || nt.includes(np) || np.includes(nt));
+      });
+      if(!match)return;
+      if((!p.note || p.note===p.type || /未登録/.test(String(p.note))) && match.extract){
+        p.note=String(match.extract).slice(0,240);
+      }
+      if(!p.wikipediaUrl && match.fullurl)p.wikipediaUrl=match.fullurl;
+      if(!String(p.source||"").includes("Wikipedia")){
+        p.source=[p.source,"Wikipedia"].filter(Boolean).join(" + ");
+      }
+    });
+  }catch(e){console.warn("Wikipedia補完",e);}
+  return items;
 }
 
 async function enrichFromWikidata(items){
@@ -323,7 +403,9 @@ function mergeWithCustomPlaces(items){
     if(!nearbyUserLocation || !Number.isFinite(p.distance))return true;
     return p.distance<=50;
   });
-  return dedupePlaces([...items,...custom]);
+  const merged=dedupePlaces([...items,...custom]);
+  applyAllPlaceOverrides(merged);
+  return merged;
 }
 
 async function fetchNearbyPlaces(lat,lon){
@@ -381,8 +463,10 @@ async function ensureNearbyPlaces(force=false){
     found=dedupePlaces(found);
     if(status) status.textContent=`🔎 ${found.length}件を取得。住所・HP情報を補完しています…`;
     found=await enrichFromWikidata(found);
+    found=await enrichFromWikipedia(found,nearbyUserLocation.lat,nearbyUserLocation.lon);
     found=await enrichMissingAddresses(found);
     const uniq=mergeWithCustomPlaces(found);
+    applyAllPlaceOverrides(uniq);
     uniq.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
     if(uniq.length){
       places=uniq;
@@ -967,6 +1051,98 @@ function deleteCustomPlaceForm(){
   refreshPlacesWithCustom();
 }
 
+
+function adminPlaceHaystack(p){
+  return [p.name,p.address,p.area,p.city,p.type,p.phone].filter(Boolean).join(" ").toLowerCase();
+}
+function renderAdminAllPlaces(){
+  const box=$("#adminAllPlacesList");
+  if(!box)return;
+  const q=($("#adminPlaceSearch")?.value||"").trim().toLowerCase();
+  const arr=[...places]
+    .filter(p=>!q || adminPlaceHaystack(p).includes(q))
+    .sort((a,b)=>(a.distance??9999)-(b.distance??9999));
+
+  box.innerHTML=arr.length?arr.map(p=>`
+    <div class="admin-store-row">
+      <div class="admin-store-info">
+        <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}</strong>
+        <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
+        <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${escapeHtml(p.source||"PawPal")}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
+      </div>
+      <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
+    </div>
+  `).join(""):'<div class="empty">該当する店舗はありません</div>';
+
+  box.querySelectorAll("[data-admin-edit-place]").forEach(btn=>{
+    btn.onclick=()=>openAdminEditPlace(btn.dataset.adminEditPlace);
+  });
+}
+function findPlaceByStableKey(key){
+  return places.find(p=>placeStableKey(p)===key);
+}
+function openAdminEditPlace(key){
+  const p=findPlaceByStableKey(key);
+  if(!p)return;
+  $("#adminEditPlaceKey").value=key;
+  $("#adminEditPlaceName").value=p.name||"";
+  $("#adminEditPlaceType").value=["病院","トリミング","ホテル","ペットショップ","その他"].includes(p.type)?p.type:"その他";
+  $("#adminEditPlaceAddress").value=p.address||"";
+  $("#adminEditPlacePhone").value=p.phone||"";
+  $("#adminEditPlaceUrl").value=p.url||"";
+  $("#adminEditPlaceHours").value=p.hours||"";
+  $("#adminEditPlaceNote").value=p.note||"";
+  $("#adminEditPlaceRecommended").checked=!!p.recommended;
+  $("#adminEditPlaceSource").textContent=`取得元：${p.source||"不明"}`;
+  $("#adminEditOriginalInfo").innerHTML=`
+    <b>外部取得情報の識別</b><br>
+    ID：${escapeHtml(String(p.id||"なし"))}<br>
+    ${Number.isFinite(p.lat)&&Number.isFinite(p.lon)?`位置：${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}<br>`:""}
+    ${p.wikidata?`Wikidata：${escapeHtml(p.wikidata)}<br>`:""}
+    ${p.wikipediaUrl?`Wikipedia：<a href="${escapeHtml(p.wikipediaUrl)}" target="_blank" rel="noopener">開く</a>`:""}
+  `;
+  const m=$("#adminEditPlaceModal");
+  if(m){m.classList.add("open");m.setAttribute("aria-hidden","false");}
+}
+function closeAdminEditPlace(){
+  const m=$("#adminEditPlaceModal");
+  if(m){m.classList.remove("open");m.setAttribute("aria-hidden","true");}
+}
+function saveAdminEditedPlace(){
+  const key=$("#adminEditPlaceKey").value;
+  const p=findPlaceByStableKey(key);
+  if(!p)return;
+  const updates={
+    name:$("#adminEditPlaceName").value.trim()||p.name,
+    type:$("#adminEditPlaceType").value,
+    address:$("#adminEditPlaceAddress").value.trim()||"住所情報なし",
+    phone:$("#adminEditPlacePhone").value.trim(),
+    url:$("#adminEditPlaceUrl").value.trim(),
+    hours:$("#adminEditPlaceHours").value.trim()||"営業時間未登録",
+    note:$("#adminEditPlaceNote").value.trim()||$("#adminEditPlaceType").value,
+    recommended:$("#adminEditPlaceRecommended").checked
+  };
+  storePlaceOverride(p,updates);
+  Object.assign(p,updates,{pawpalEdited:true,emoji:placeTypeEmoji(updates.type)});
+  closeAdminEditPlace();
+  renderPlaces();
+  renderAdminRecommendedList();
+  renderAdminAllPlaces();
+  const s=$("#adminSaveStatus");
+  if(s)s.textContent="✏️ 店舗情報をPawPal側に保存しました";
+}
+function resetAdminEditedPlace(){
+  const key=$("#adminEditPlaceKey").value;
+  const p=findPlaceByStableKey(key);
+  if(!p)return;
+  if(!confirm("この店舗のPawPal側の修正を解除しますか？"))return;
+  removePlaceOverride(p);
+  closeAdminEditPlace();
+  const s=$("#adminSaveStatus");
+  if(s)s.textContent="↩️ PawPal側の修正を解除しました。再検索すると外部情報に戻ります";
+  ensureNearbyPlaces(true);
+}
+
 function renderAdminRecommendedList(){
   const box=$("#adminRecommendedList");
   if(!box)return;
@@ -988,6 +1164,7 @@ function renderAdminRecommendedList(){
 function openPawpalAdmin(){
   renderAdminRecommendedList();
   renderCustomPlaceList();
+  renderAdminAllPlaces();
   const m=$("#pawpalAdminModal");
   if(!m)return;
   m.classList.add("open");
@@ -2725,3 +2902,11 @@ bindClick("#closeCustomPlaceBottomBtn",closeCustomPlaceForm);
 bindClick("#saveCustomPlaceBtn",saveCustomPlaceForm);
 bindClick("#deleteCustomPlaceBtn",deleteCustomPlaceForm);
 bindEvent("#customPlaceModal","click",e=>{if(e.target.id==="customPlaceModal")closeCustomPlaceForm();});
+
+
+bindEvent("#adminPlaceSearch","input",renderAdminAllPlaces);
+bindClick("#closeAdminEditPlaceBtn",closeAdminEditPlace);
+bindClick("#closeAdminEditPlaceBottomBtn",closeAdminEditPlace);
+bindClick("#saveAdminEditPlaceBtn",saveAdminEditedPlace);
+bindClick("#resetAdminEditPlaceBtn",resetAdminEditedPlace);
+bindEvent("#adminEditPlaceModal","click",e=>{if(e.target.id==="adminEditPlaceModal")closeAdminEditPlace();});

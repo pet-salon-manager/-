@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=19.0" />
+  <link rel="stylesheet" href="style.css?v=19.1" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v19.0</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v19.1</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -170,7 +170,7 @@
         <div id="nearbyPlaceStatus" class="result-box">お店画面を開くと、現在地から50km以内を近い順に検索します。</div>
 
         <div id="placeSourceInfo" class="source-info-box">
-          🔎 OpenStreetMap / Wikidata / Nominatim / PawPal独自登録を統合
+          🔎 OpenStreetMap / Overpass / Nominatim / Wikidata / Wikipedia / PawPal独自情報を統合
         </div>
 
 
@@ -773,6 +773,17 @@
       </div>
 
       <div id="adminRecommendedList" class="admin-store-list"></div>
+
+      <div class="admin-custom-block">
+        <div class="admin-subtitle">✏️ 取得済み店舗の情報を編集</div>
+        <div class="admin-note">
+          外部データは直接変更せず、PawPal側の上書き情報として保存します。
+          次回の検索でもPawPal側の修正を優先表示します。
+        </div>
+        <input id="adminPlaceSearch" class="admin-search" placeholder="店名・住所・種類で検索">
+        <div id="adminAllPlacesList" class="admin-store-list"></div>
+      </div>
+
       <button id="closePawpalAdminBottomBtn" type="button" class="place-bottom-close">← お店画面に戻る</button>
     </div>
   </div>
@@ -815,6 +826,49 @@
     </div>
   </div>
 
-  <script src="app.js?v=19.0"></script>
+  
+  <div id="adminEditPlaceModal" class="place-modal admin-modal" aria-hidden="true">
+    <div class="place-modal-card admin-card">
+      <div class="place-modal-head">
+        <div class="place-title-wrap">
+          <div class="place-detail-emoji">✏️</div>
+          <div>
+            <h3>店舗情報を編集</h3>
+            <div id="adminEditPlaceSource" class="place-detail-meta"></div>
+          </div>
+        </div>
+        <button id="closeAdminEditPlaceBtn" type="button" class="place-modal-close">×</button>
+      </div>
+
+      <input id="adminEditPlaceKey" type="hidden">
+      <label>店名<input id="adminEditPlaceName"></label>
+      <label>種類
+        <select id="adminEditPlaceType">
+          <option value="病院">🏥 病院</option>
+          <option value="トリミング">✂️ トリミング</option>
+          <option value="ホテル">🏨 ホテル</option>
+          <option value="ペットショップ">🛍️ ペットショップ</option>
+          <option value="その他">🏪 その他</option>
+        </select>
+      </label>
+      <label>住所<input id="adminEditPlaceAddress"></label>
+      <label>電話<input id="adminEditPlacePhone" inputmode="tel"></label>
+      <label>ホームページ<input id="adminEditPlaceUrl" inputmode="url"></label>
+      <label>営業時間<input id="adminEditPlaceHours"></label>
+      <label>説明<textarea id="adminEditPlaceNote"></textarea></label>
+      <label class="admin-check-row">
+        <input id="adminEditPlaceRecommended" type="checkbox">
+        ⭐ PawPalおすすめ店舗にする
+      </label>
+
+      <div class="admin-source-note" id="adminEditOriginalInfo"></div>
+
+      <button id="saveAdminEditPlaceBtn" type="button" class="primary">💾 PawPal側に保存</button>
+      <button id="resetAdminEditPlaceBtn" type="button" class="secondary">↩️ PawPalの修正を解除</button>
+      <button id="closeAdminEditPlaceBottomBtn" type="button" class="place-bottom-close">← 運営管理へ戻る</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=19.1"></script>
 </body>
 </html>
