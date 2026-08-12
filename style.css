@@ -1043,3 +1043,6 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .admin-store-filter-chips{scrollbar-width:none}
 .admin-store-filter-chips::-webkit-scrollbar{display:none}
 .admin-filter-summary{line-height:1.5}
+
+/* PawPal v20.7 Supabase運営管理専用 */
+.admin-filter-summary{font-weight:650}

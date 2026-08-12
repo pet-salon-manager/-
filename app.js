@@ -1110,9 +1110,25 @@ function adminStoreMatchesFilter(p){
 
 
 function getAdminMasterPlaces(){
-  const cloud=getCloudStoreCache().map(p=>({...p,emoji:p.emoji||placeTypeEmoji(p.type)}));
-  const external=(places||[]).filter(p=>!p.cloudStoreId);
-  return dedupePlaces([...cloud,...external]);
+  // 運営管理はSupabase店舗マスタのみ。
+  // 外部検索結果は一般のお店検索では使うが、管理一覧には混ぜない。
+  return getCloudStoreCache()
+    .map(p=>({...p,emoji:p.emoji||placeTypeEmoji(p.type)}))
+    .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ja"));
+}
+
+
+function refreshAdminCloudMaster(){
+  try{
+    const cloud=getCloudStoreCache();
+    if(!cloud.length){
+      const s=$("#adminStoreFilterSummary");
+      if(s)s.textContent="Supabase店舗マスタが未同期です。先に「店舗マスタを同期」を押してください。";
+    }
+    renderAdminAllPlaces();
+  }catch(e){
+    console.warn(e);
+  }
 }
 
 function renderAdminAllPlaces(){
@@ -1132,7 +1148,7 @@ function renderAdminAllPlaces(){
     const noAddress=adminMaster.filter(hasMissingAddress).length;
     const noPhone=adminMaster.filter(hasMissingPhone).length;
     const noWebsite=adminMaster.filter(hasMissingWebsite).length;
-    summary.textContent=`表示 ${arr.length}件 / 全${adminMaster.length}件 ・ 未入力 ${missing}件（住所 ${noAddress} / 電話 ${noPhone} / HP ${noWebsite}）`;
+    summary.textContent=`☁️ Supabase店舗のみ ・ 表示 ${arr.length}件 / 全${adminMaster.length}件 ・ 未入力 ${missing}件（住所 ${noAddress} / 電話 ${noPhone} / HP ${noWebsite}）`;
   }
 
   box.innerHTML=arr.length?arr.map(p=>`
@@ -1140,7 +1156,7 @@ function renderAdminAllPlaces(){
       <div class="admin-store-info">
         <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}${hasMissingAddress(p)?' <span class="missing-info-badge">📍住所</span>':''}${hasMissingPhone(p)?' <span class="missing-info-badge">☎️電話</span>':''}${hasMissingWebsite(p)?' <span class="missing-info-badge">🌐HP</span>':''}</strong>
         <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
-        <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${p.cloudStoreId?"☁️ Supabase店舗 ・ ":""}${escapeHtml(p.source||"PawPal")}${p.isPublished===false?" ・ 🚫非公開":""}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
+        <span>☁️ Supabase店舗 ・ ${escapeHtml(p.source||"PawPal店舗マスタ")}${p.isPublished===false?" ・ 🚫非公開":""}</span>
       </div>
       <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
     </div>
