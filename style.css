@@ -1092,3 +1092,10 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   width:100%;box-sizing:border-box;margin-top:6px;padding:13px 14px;
   border:1px solid #efd7e3;border-radius:14px;background:#fff;font-size:16px;color:#5f4c59
 }
+
+.national-master-dashboard{margin:16px 0;padding:16px;border:1px solid #efd6e3;border-radius:22px;background:#fffafd}
+.national-master-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.national-master-title{font-weight:900;font-size:18px;color:#604b59}.national-master-sub{font-size:12px;line-height:1.5;color:#947f8d;margin-top:3px}.mini-btn{width:auto!important;padding:9px 12px!important}
+.national-master-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:14px}.master-kpi{padding:13px;border-radius:16px;background:#fff;border:1px solid #f1dce6;text-align:center}.master-kpi b{display:block;font-size:22px;color:#b94f7b}.master-kpi span{display:block;font-size:12px;color:#806d79;margin-top:3px}
+.national-master-missing{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.national-master-missing span{background:#fff3d6;padding:7px 9px;border-radius:999px;font-size:12px;color:#7d6655}.national-master-details{margin-top:12px;border-top:1px solid #f3e3eb;padding-top:10px}.national-master-details summary{font-weight:850;color:#66525f;cursor:pointer}
+.master-count-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.master-count-chip{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #efdce6;background:white;border-radius:12px;padding:10px;font-size:12px;color:#6d5966}.master-count-chip b{color:#b64f79}
+.duplicate-candidate-list{display:grid;gap:8px;margin-top:10px}.duplicate-candidate-card{padding:10px;border-radius:13px;background:#fff;border:1px solid #eddce5}.duplicate-candidate-card div{display:flex;justify-content:space-between;gap:8px}.duplicate-candidate-card span{font-size:11px;color:#a47855}.duplicate-candidate-card small{display:block;color:#877480;margin-top:4px;line-height:1.4}.national-master-empty{padding:12px;color:#8f7a87;font-size:12px}

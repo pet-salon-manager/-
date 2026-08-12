@@ -1109,6 +1109,34 @@ function adminStoreMatchesFilter(p){
 }
 
 
+
+function dashText(id,value){const e=document.getElementById(id);if(e)e.textContent=String(value)}
+function normalizeStoreNameForDuplicate(v){return String(v||"").toLowerCase().normalize("NFKC").replace(/[　\s・･\-ー_.,，．()（）【】\[\]]+/g,"").replace(/株式会社|有限会社|合同会社/g,"").trim()}
+function storeDistanceKm(a,b){if(!Number.isFinite(a?.lat)||!Number.isFinite(a?.lon)||!Number.isFinite(b?.lat)||!Number.isFinite(b?.lon))return Infinity;return distanceKm(a.lat,a.lon,b.lat,b.lon)}
+function getDuplicateCandidatesForDashboard(stores){
+  const groups=new Map(),out=[];
+  for(const p of stores){const k=normalizeStoreNameForDuplicate(p.name);if(!k)continue;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(p)}
+  for(const items of groups.values()){
+    if(items.length<2)continue;
+    for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){
+      const a=items[i],b=items[j],aa=String(a.address||"").trim(),bb=String(b.address||"").trim();
+      const sameAddress=aa&&bb&&aa===bb,near=storeDistanceKm(a,b)<=0.5;
+      if(sameAddress||near){out.push({a,b,reason:sameAddress?"同一住所":"500m以内"});if(out.length>=100)return out}
+    }
+  }
+  return out;
+}
+function countBy(items,keyFn){const m=new Map();for(const x of items){const k=keyFn(x)||"未設定";m.set(k,(m.get(k)||0)+1)}return [...m.entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]),"ja"))}
+function renderCountGrid(id,rows){const host=document.getElementById(id);if(!host)return;host.innerHTML=rows.map(([label,count])=>`<div class="master-count-chip"><span>${escapeHtml(label)}</span><b>${count}</b></div>`).join("")||'<div class="national-master-empty">データなし</div>'}
+function renderNationalMasterDashboard(){
+  const stores=(typeof getAdminMasterPlaces==="function"?getAdminMasterPlaces():[])||[];
+  const noAddress=stores.filter(hasMissingAddress).length,noPhone=stores.filter(hasMissingPhone).length,noWebsite=stores.filter(hasMissingWebsite).length;
+  const missing=stores.filter(hasMissingStoreInfo).length,published=stores.filter(p=>p.isPublished!==false).length,dups=getDuplicateCandidatesForDashboard(stores);
+  dashText("dashTotalStores",stores.length);dashText("dashMissingStores",missing);dashText("dashDuplicateStores",dups.length);dashText("dashPublishedStores",published);dashText("dashNoAddress",noAddress);dashText("dashNoPhone",noPhone);dashText("dashNoWebsite",noWebsite);
+  renderCountGrid("dashTypeCounts",countBy(stores,p=>p.type||"その他"));renderCountGrid("dashPrefectureCounts",countBy(stores,p=>p.prefecture||p.area||"未設定"));
+  const host=document.getElementById("dashDuplicateList");if(host){host.innerHTML=dups.length?dups.map(({a,b,reason})=>`<div class="duplicate-candidate-card"><div><b>${escapeHtml(a.name||"名称未登録")}</b><span>${escapeHtml(reason)}</span></div><small>① ${escapeHtml(a.address||"住所なし")}</small><small>② ${escapeHtml(b.address||"住所なし")}</small></div>`).join(""):'<div class="national-master-empty">現在の条件では重複候補は見つかりませんでした。</div>'}
+}
+
 function getAdminMasterPlaces(){
   // 運営管理はSupabase店舗マスタのみ。
   // 外部検索結果は一般のお店検索では使うが、管理一覧には混ぜない。
@@ -1165,6 +1193,7 @@ function renderAdminAllPlaces(){
   box.querySelectorAll("[data-admin-edit-place]").forEach(btn=>{
     btn.onclick=()=>openAdminEditPlace(btn.dataset.adminEditPlace);
   });
+  try{renderNationalMasterDashboard();}catch(e){console.warn(e)}
 }
 function findPlaceByStableKey(key){
   const inCurrent=(places||[]).find(p=>placeStableKey(p)===key);
@@ -3537,6 +3566,7 @@ async function syncStoreMaster(){
   window.pawpalCloudStores=rows;
   storeBadge("同期済み "+rows.length+"件");
   refreshPlacesWithCloud();
+  try{renderNationalMasterDashboard();}catch(e){console.warn(e)}
  }catch(error){
   console.error(error);
   storeBadge("同期失敗");
@@ -3869,3 +3899,5 @@ document.addEventListener("DOMContentLoaded",()=>{
     });
   }
 });
+
+document.addEventListener("DOMContentLoaded",()=>{const b=document.getElementById("refreshNationalDashboardBtn");if(b)b.addEventListener("click",renderNationalMasterDashboard)});

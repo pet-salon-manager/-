@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=21.1.1" />
+  <link rel="stylesheet" href="style.css?v=21.2" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v21.1.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v21.2</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -878,7 +878,27 @@
           次回の検索でもPawPal側の修正を優先表示します。
         </div>
         <input id="adminPlaceSearch" class="admin-search" placeholder="店名・住所・種類で検索">
-      <div class="admin-store-filter-panel">
+      <section id="nationalMasterDashboard" class="national-master-dashboard">
+  <div class="national-master-head">
+    <div><div class="national-master-title">📊 全国店舗マスター分析</div><div class="national-master-sub">Supabase店舗マスタの全件を集計</div></div>
+    <button id="refreshNationalDashboardBtn" type="button" class="secondary mini-btn">🔄 更新</button>
+  </div>
+  <div class="national-master-kpis">
+    <div class="master-kpi"><b id="dashTotalStores">-</b><span>総店舗数</span></div>
+    <div class="master-kpi"><b id="dashMissingStores">-</b><span>未入力あり</span></div>
+    <div class="master-kpi"><b id="dashDuplicateStores">-</b><span>重複候補</span></div>
+    <div class="master-kpi"><b id="dashPublishedStores">-</b><span>公開中</span></div>
+  </div>
+  <div class="national-master-missing">
+    <span>📍住所なし <b id="dashNoAddress">-</b></span>
+    <span>☎️電話なし <b id="dashNoPhone">-</b></span>
+    <span>🌐HPなし <b id="dashNoWebsite">-</b></span>
+  </div>
+  <details class="national-master-details" open><summary>🏷️ 種類別件数</summary><div id="dashTypeCounts" class="master-count-grid"></div></details>
+  <details class="national-master-details"><summary>🗾 都道府県別件数</summary><div id="dashPrefectureCounts" class="master-count-grid"></div></details>
+  <details class="national-master-details"><summary>🧹 重複候補</summary><div class="national-master-sub">同名＋同一住所、または同名＋500m以内を候補表示。自動削除はしません。</div><div id="dashDuplicateList" class="duplicate-candidate-list"></div></details>
+</section>
+<div class="admin-store-filter-panel">
         <div class="admin-store-filter-title">🔎 管理フィルター</div>
         <div class="admin-store-filter-chips">
           <button id="adminStoreFilterAll" type="button" class="admin-filter-chip active">すべて</button>
@@ -1020,6 +1040,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=21.1.1"></script>
+  <script src="app.js?v=21.2"></script>
 </body>
 </html>
