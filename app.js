@@ -3507,13 +3507,41 @@ function refreshPlacesWithCloud(){
 async function syncStoreMaster(){
  if(!storeCloudClient&&!initStoreCloud()){alert("Supabase接続設定を先に保存してください。");return}
  storeBadge("同期中…");
- const {data,error}=await storeCloudClient.from("pawpal_stores").select("*").eq("is_published",true).order("name");
- if(error){console.error(error);storeBadge("同期失敗");alert("店舗マスタの同期に失敗しました。SQLと接続設定を確認してください。");return}
- const rows=(data||[]).map(cloudStore);
- localStorage.setItem("pawpal_store_master_cache_v20",JSON.stringify(rows));
- window.pawpalCloudStores=rows;
- storeBadge("同期済み "+rows.length+"件");
- refreshPlacesWithCloud();
+ try{
+  const pageSize=1000;
+  let from=0;
+  let all=[];
+
+  while(true){
+   const {data,error}=await storeCloudClient
+    .from("pawpal_stores")
+    .select("*")
+    .eq("is_published",true)
+    .order("name")
+    .range(from,from+pageSize-1);
+
+   if(error)throw error;
+
+   const batch=data||[];
+   all.push(...batch);
+   storeBadge("同期中 "+all.length+"件…");
+
+   if(batch.length<pageSize)break;
+   from+=pageSize;
+
+   if(from>=50000)throw new Error("SYNC_SAFETY_LIMIT");
+  }
+
+  const rows=all.map(cloudStore);
+  localStorage.setItem("pawpal_store_master_cache_v20",JSON.stringify(rows));
+  window.pawpalCloudStores=rows;
+  storeBadge("同期済み "+rows.length+"件");
+  refreshPlacesWithCloud();
+ }catch(error){
+  console.error(error);
+  storeBadge("同期失敗");
+  alert("店舗マスタの同期に失敗しました。接続設定を確認して、もう一度お試しください。");
+ }
 }
 document.addEventListener("DOMContentLoaded",()=>{
  initStoreCloud();
