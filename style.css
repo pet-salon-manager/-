@@ -1073,3 +1073,13 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   color:#a07b45;
   font-weight:700;
 }
+
+/* PawPal v21.0 未入力店舗の連続整備 */
+.admin-next-workflow{
+  margin:14px 0;padding:14px;border-radius:18px;
+  background:#f7f6ff;border:1px solid #dedcf5
+}
+.admin-next-title{font-weight:850;color:#615974;margin-bottom:8px}
+.admin-next-progress{font-size:13px;line-height:1.6;color:#7b738c;margin-bottom:8px}
+#adminSaveNextBtn,#adminNextMissingBtn{width:100%;margin-top:8px}
+#adminSaveNextBtn:disabled{opacity:.55}

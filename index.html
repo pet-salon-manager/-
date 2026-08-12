@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.9.1" />
+  <link rel="stylesheet" href="style.css?v=21.0" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.9.1</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v21.0</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -955,12 +955,19 @@
 
 
       <button id="saveAdminEditPlaceBtn" type="button" class="primary">☁️ 店舗情報を保存</button>
+      <div class="admin-next-workflow">
+        <div class="admin-next-title">⚡ 未入力店舗を順番に整備</div>
+        <div id="adminNextProgress" class="admin-next-progress"></div>
+        <button id="adminSaveNextBtn" type="button" class="primary">💾 Supabaseへ保存して次へ</button>
+        <button id="adminNextMissingBtn" type="button" class="secondary">➡️ 保存せず次の未入力へ</button>
+      </div>
+
       <button id="deleteCloudStoreBtn" type="button" class="danger-btn" hidden>🗑️ Supabaseから削除</button>
       <button id="resetAdminEditPlaceBtn" type="button" class="secondary">↩️ PawPal側の修正を解除</button>
       <button id="closeAdminEditPlaceBottomBtn" type="button" class="place-bottom-close">← 運営管理へ戻る</button>
     </div>
   </div>
 
-  <script src="app.js?v=20.9.1"></script>
+  <script src="app.js?v=21.0"></script>
 </body>
 </html>

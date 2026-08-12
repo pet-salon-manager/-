@@ -1324,7 +1324,7 @@ function renderAdminEnrichResults(c){
     if(c.phone && $("#adminEnrichPhone")?.checked)$("#adminEditPlacePhone").value=c.phone;
     if(c.website && $("#adminEnrichWebsite")?.checked)$("#adminEditPlaceUrl").value=c.website;
     if(c.hours && $("#adminEnrichHours")?.checked)$("#adminEditPlaceHours").value=c.hours;
-    adminEnrichStatus("候補をフォームへ反映しました。内容・出典を確認してからSupabaseへ保存してください。","success");
+    adminEnrichStatus("候補をフォームへ反映しました。内容・出典を確認してからSupabaseへ保存してください。","success"); updateAdminNextProgress();
   };
 }
 async function findAdminEnrichment(){
@@ -1370,6 +1370,90 @@ async function findAdminEnrichment(){
   }catch(e){
     console.error(e);
     adminEnrichStatus("補完候補の取得に失敗しました。時間をおいて再度お試しください。","error");
+  }
+}
+
+
+function getAdminMissingQueue(){
+  return getAdminMasterPlaces()
+    .filter(hasMissingStoreInfo)
+    .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ja"));
+}
+function currentAdminEditPlace(){
+  const key=$("#adminEditPlaceKey")?.value||"";
+  return key?findPlaceByStableKey(key):null;
+}
+function updateAdminNextProgress(){
+  const host=$("#adminNextProgress");
+  if(!host)return;
+  const queue=getAdminMissingQueue();
+  const p=currentAdminEditPlace();
+  if(!p){
+    host.textContent=`未入力店舗 残り ${queue.length}件`;
+    return;
+  }
+  const key=placeStableKey(p);
+  const idx=queue.findIndex(x=>placeStableKey(x)===key);
+  const missing=[];
+  if(hasMissingAddress(p))missing.push("住所");
+  if(hasMissingPhone(p))missing.push("電話");
+  if(hasMissingWebsite(p))missing.push("HP");
+  host.textContent=`未入力 残り ${queue.length}件 ・ ${idx>=0?`${idx+1}/${queue.length}`:"整備済み"} ・ 不足：${missing.join(" / ")||"なし"}`;
+}
+function nextMissingStoreAfter(currentKey){
+  const queue=getAdminMissingQueue();
+  if(!queue.length)return null;
+  const idx=queue.findIndex(x=>placeStableKey(x)===currentKey);
+  if(idx<0)return queue[0];
+  return queue[(idx+1)%queue.length]||queue[0];
+}
+function openNextMissingStore(){
+  const p=currentAdminEditPlace();
+  const currentKey=p?placeStableKey(p):"";
+  const next=nextMissingStoreAfter(currentKey);
+  if(!next){
+    alert("未入力店舗はありません。すべて整備済みです 🎉");
+    renderAdminAllPlaces();
+    return;
+  }
+  openAdminEditPlace(placeStableKey(next));
+}
+async function saveAndOpenNextMissing(){
+  const p=currentAdminEditPlace();
+  if(!p || !p.cloudStoreId){
+    alert("Supabase店舗でのみ使用できます。");
+    return;
+  }
+  const currentKey=placeStableKey(p);
+  const updates=adminEditValues(p);
+  try{
+    const btn=$("#adminSaveNextBtn");
+    if(btn)btn.disabled=true;
+    adminCloudStatus("保存して次の店舗を準備中…");
+    await saveCloudEditedPlace(p,updates);
+
+    const next=nextMissingStoreAfter(currentKey);
+    if(next){
+      openAdminEditPlace(placeStableKey(next));
+      adminCloudStatus("前の店舗を保存しました。次の未入力店舗です。","success");
+      updateAdminNextProgress();
+    }else{
+      closeAdminEditPlace();
+      renderAdminAllPlaces();
+      alert("保存しました。未入力店舗はすべて整備済みです 🎉");
+    }
+  }catch(e){
+    console.error(e);
+    if(String(e?.message||e)==="ADMIN_LOGIN_REQUIRED"){
+      adminCloudStatus("管理者ログインが必要です。","error");
+      alert("先にPawPal運営管理者としてログインしてください。");
+    }else{
+      adminCloudStatus("保存に失敗しました。","error");
+      alert("Supabaseへの保存に失敗しました。");
+    }
+  }finally{
+    const btn=$("#adminSaveNextBtn");
+    if(btn)btn.disabled=false;
   }
 }
 
@@ -1426,6 +1510,7 @@ function openAdminEditPlace(key){
   }
   const m=$("#adminEditPlaceModal");
   if(m){m.classList.add("open");m.setAttribute("aria-hidden","false");}
+  updateAdminNextProgress();
 }
 function closeAdminEditPlace(){
   const m=$("#adminEditPlaceModal");
@@ -3730,3 +3815,9 @@ document.addEventListener("DOMContentLoaded",()=>{
 /* ===== /PawPal v20.2 店舗運営管理者ログイン ===== */
 
 document.addEventListener("DOMContentLoaded",()=>bindEvent("#adminEnrichBtn","click",findAdminEnrichment));
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+bindEvent("#adminSaveNextBtn","click",saveAndOpenNextMissing);
+bindEvent("#adminNextMissingBtn","click",openNextMissingStore);
+});
