@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v21-0-admin-workflow-20260812';
+const CACHE='pawpal-v21-1-nationwide-import-20260812';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

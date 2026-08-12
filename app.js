@@ -3530,6 +3530,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 /* ===== PawPal v20.1 静岡県 実店舗取り込み ===== */
 let shizuokaImportRows=[];
+let currentImportPrefecture="静岡県";
 
 function escImport(s=""){
   return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
@@ -3588,7 +3589,7 @@ function osmToCandidate(el){
     external_id:`osm-${el.type}-${el.id}`,
     name,
     primary_type:type,
-    prefecture:"静岡県",
+    prefecture:currentImportPrefecture,
     address:osmAddress(tags),
     website:osmWebsite(tags),
     phone:osmPhone(tags),
@@ -3636,9 +3637,11 @@ function renderShizuokaImportList(){
   });
 }
 async function fetchShizuokaCandidates(){
-  importStatus("取得中…");
+  const sel=document.getElementById("importPrefectureSelect");
+  currentImportPrefecture=sel?.value||"静岡県";
+  importStatus(`${currentImportPrefecture}の候補を取得中…`);
   const q=`[out:json][timeout:40];
-area["name"="静岡県"]["boundary"="administrative"]->.a;
+area["name"="${currentImportPrefecture}"]["boundary"="administrative"]->.a;
 (
   nwr["amenity"="veterinary"](area.a);
   nwr["shop"="pet"](area.a);
@@ -3665,13 +3668,13 @@ out center tags;`;
       shizuokaImportRows=dedupeCandidates((data.elements||[]).map(osmToCandidate).filter(Boolean))
         .sort((a,b)=>a.primary_type.localeCompare(b.primary_type,"ja")||a.name.localeCompare(b.name,"ja"));
       renderShizuokaImportList();
-      importStatus(`候補 ${shizuokaImportRows.length}件`);
+      importStatus(`${currentImportPrefecture}：候補 ${shizuokaImportRows.length}件`);
       return;
     }catch(e){lastErr=e;}
   }
   console.warn(lastErr);
   importStatus("取得失敗");
-  alert("静岡県の店舗候補取得に失敗しました。時間をおいてもう一度お試しください。");
+  alert(`${currentImportPrefecture}の店舗候補取得に失敗しました。時間をおいてもう一度お試しください。`);
 }
 async function ensureStoreClient(){
   if(typeof initStoreCloud==="function"){
@@ -3715,8 +3718,8 @@ async function saveCheckedShizuokaStores(){
     }));
     const {error}=await client.from("pawpal_stores").upsert(payload,{onConflict:"external_id"});
     if(error)throw error;
-    importStatus(`Supabaseへ保存済み ${rows.length}件`);
-    alert(`${rows.length}件を店舗マスタへ保存しました。`);
+    importStatus(`${currentImportPrefecture}：Supabaseへ保存済み ${rows.length}件`);
+    alert(`${currentImportPrefecture}の${rows.length}件を店舗マスタへ保存しました。`);
     if(typeof syncStoreMaster==="function")await syncStoreMaster();
   }catch(e){
     console.error(e);
@@ -3820,4 +3823,21 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 bindEvent("#adminSaveNextBtn","click",saveAndOpenNextMissing);
 bindEvent("#adminNextMissingBtn","click",openNextMissingStore);
+});
+
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const sel=document.getElementById("importPrefectureSelect");
+  if(sel){
+    const saved=localStorage.getItem("pawpal_import_prefecture_v21");
+    if(saved && [...sel.options].some(o=>o.value===saved))sel.value=saved;
+    currentImportPrefecture=sel.value||"静岡県";
+    sel.addEventListener("change",()=>{
+      currentImportPrefecture=sel.value;
+      localStorage.setItem("pawpal_import_prefecture_v21",currentImportPrefecture);
+      shizuokaImportRows=[];
+      renderShizuokaImportList();
+      importStatus(`${currentImportPrefecture}：未取得`);
+    });
+  }
 });

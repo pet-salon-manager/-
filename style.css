@@ -1083,3 +1083,12 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .admin-next-progress{font-size:13px;line-height:1.6;color:#7b738c;margin-bottom:8px}
 #adminSaveNextBtn,#adminNextMissingBtn{width:100%;margin-top:8px}
 #adminSaveNextBtn:disabled{opacity:.55}
+
+/* PawPal v21.1 全国店舗取り込み */
+.import-pref-label{
+  display:block;margin:10px 0 12px;font-weight:800;color:#624e5e
+}
+#importPrefectureSelect{
+  width:100%;box-sizing:border-box;margin-top:6px;padding:13px 14px;
+  border:1px solid #efd7e3;border-radius:14px;background:#fff;font-size:16px;color:#5f4c59
+}
