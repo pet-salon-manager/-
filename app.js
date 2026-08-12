@@ -1225,39 +1225,90 @@ async function fetchOverpassDetails(p){
   });
   return candidates[0]||null;
 }
-function enrichCandidateFromSources(p,nom,ov){
+
+async function fetchWikidataEntity(qid){
+  if(!qid || !/^Q\d+$/.test(qid))return null;
+  const url=`https://www.wikidata.org/wiki/Special:EntityData/${encodeURIComponent(qid)}.json`;
+  const r=await fetch(url,{headers:{"Accept":"application/json"}});
+  if(!r.ok)throw new Error("Wikidata "+r.status);
+  const data=await r.json();
+  return data?.entities?.[qid]||null;
+}
+function wikidataClaimString(entity,prop){
+  try{
+    const claims=entity?.claims?.[prop]||[];
+    for(const c of claims){
+      const v=c?.mainsnak?.datavalue?.value;
+      if(typeof v==="string" && v.trim())return v.trim();
+    }
+  }catch(e){}
+  return "";
+}
+function wikidataOfficialWebsite(entity){
+  return wikidataClaimString(entity,"P856");
+}
+function wikidataPhone(entity){
+  return wikidataClaimString(entity,"P1329");
+}
+function normalizePhoneForDisplay(v){
+  return String(v||"").trim().replace(/\s+/g," ");
+}
+function normalizeWebsite(v){
+  let s=String(v||"").trim();
+  if(!s)return "";
+  if(!/^https?:\/\//i.test(s))s="https://"+s;
+  return s;
+}
+
+function enrichCandidateFromSources(p,nom,ov,wd){
   const tags=ov?.tags||{};
   const ex=nom?.extratags||{};
-  const addr=nom?.display_name||"";
-  const phone=tags.phone||tags["contact:phone"]||ex.phone||ex["contact:phone"]||"";
-  const website=tags.website||tags["contact:website"]||ex.website||ex["contact:website"]||"";
+
+  const address=nom?.display_name||"";
+  const phoneOSM=tags.phone||tags["contact:phone"]||ex.phone||ex["contact:phone"]||"";
+  const websiteOSM=tags.website||tags["contact:website"]||ex.website||ex["contact:website"]||"";
+  const phoneWD=wikidataPhone(wd);
+  const websiteWD=wikidataOfficialWebsite(wd);
   const hours=tags.opening_hours||ex.opening_hours||"";
-  const wikidata=tags.wikidata||ex.wikidata||"";
-  const wikipedia=tags.wikipedia||ex.wikipedia||"";
+
+  const phone=normalizePhoneForDisplay(phoneOSM||phoneWD);
+  const website=normalizeWebsite(websiteOSM||websiteWD);
+
+  const currentWebsite=normalizeWebsite(p.url||p.website||"");
   return {
-    address: addr && addr!==p.address ? addr : "",
-    phone: phone && phone!==p.phone ? phone : "",
-    website: website && website!==(p.url||p.website) ? website : "",
+    address: address && address!==p.address ? address : "",
+    phone: phone && phone!==String(p.phone||"").trim() ? phone : "",
+    website: website && website!==currentWebsite ? website : "",
     hours: hours && hours!==p.hours ? hours : "",
-    wikidata, wikipedia
+    sources:{
+      address: address ? "Nominatim / OpenStreetMap" : "",
+      phone: phoneOSM ? "OpenStreetMap / Overpass" : (phoneWD ? "Wikidata" : ""),
+      website: websiteOSM ? "OpenStreetMap / Overpass" : (websiteWD ? "Wikidata（公式サイト）" : ""),
+      hours: hours ? "OpenStreetMap / Overpass" : ""
+    }
   };
 }
 function renderAdminEnrichResults(c){
   const host=$("#adminEnrichResults");
   if(!host)return;
   const rows=[];
-  if(c.address)rows.push(["住所","adminEnrichAddress",c.address]);
-  if(c.phone)rows.push(["電話","adminEnrichPhone",c.phone]);
-  if(c.website)rows.push(["ホームページ","adminEnrichWebsite",c.website]);
-  if(c.hours)rows.push(["営業時間","adminEnrichHours",c.hours]);
+  if(c.address)rows.push(["住所","adminEnrichAddress",c.address,c.sources?.address||""]);
+  if(c.phone)rows.push(["電話","adminEnrichPhone",c.phone,c.sources?.phone||""]);
+  if(c.website)rows.push(["ホームページ","adminEnrichWebsite",c.website,c.sources?.website||""]);
+  if(c.hours)rows.push(["営業時間","adminEnrichHours",c.hours,c.sources?.hours||""]);
+
   if(!rows.length){
     host.innerHTML='<div class="admin-enrich-empty">新しく補完できる項目は見つかりませんでした。</div>';
     return;
   }
-  host.innerHTML=rows.map(([label,id,val])=>`
+  host.innerHTML=rows.map(([label,id,val,source])=>`
     <label class="admin-enrich-row">
       <input type="checkbox" id="${id}" checked>
-      <span><b>${label}</b><small>${escapeHtml(val)}</small></span>
+      <span>
+        <b>${label}</b>
+        <small>${escapeHtml(val)}</small>
+        ${source?`<em class="admin-enrich-source">出典：${escapeHtml(source)}</em>`:""}
+      </span>
     </label>
   `).join("")+`
     <button id="adminApplyEnrichBtn" type="button" class="primary">✅ 選択した候補をフォームへ反映</button>
@@ -1267,7 +1318,7 @@ function renderAdminEnrichResults(c){
     if(c.phone && $("#adminEnrichPhone")?.checked)$("#adminEditPlacePhone").value=c.phone;
     if(c.website && $("#adminEnrichWebsite")?.checked)$("#adminEditPlaceUrl").value=c.website;
     if(c.hours && $("#adminEnrichHours")?.checked)$("#adminEditPlaceHours").value=c.hours;
-    adminEnrichStatus("候補をフォームへ反映しました。内容を確認してからSupabaseへ保存してください。","success");
+    adminEnrichStatus("候補をフォームへ反映しました。内容・出典を確認してからSupabaseへ保存してください。","success");
   };
 }
 async function findAdminEnrichment(){
@@ -1275,20 +1326,41 @@ async function findAdminEnrichment(){
   const p=findPlaceByStableKey(key);
   if(!p)return;
   try{
-    adminEnrichStatus("候補を検索中…");
+    adminEnrichStatus("候補を検索中… OpenStreetMap / Nominatim / Wikidata を照合しています。");
     $("#adminEnrichResults").innerHTML="";
-    let nom=null,ov=null;
+    let nom=null,ov=null,wd=null;
+
     try{
       const n=await fetchNominatimCandidates(p);
       nom=pickBestEnrichCandidate(n,p);
-    }catch(e){console.warn(e)}
+    }catch(e){console.warn("Nominatim",e)}
+
     try{
       ov=await fetchOverpassDetails(p);
-    }catch(e){console.warn(e)}
-    const c=enrichCandidateFromSources(p,nom,ov);
+    }catch(e){console.warn("Overpass",e)}
+
+    const qid=
+      ov?.tags?.wikidata ||
+      nom?.extratags?.wikidata ||
+      "";
+
+    if(qid){
+      try{
+        wd=await fetchWikidataEntity(qid);
+      }catch(e){console.warn("Wikidata",e)}
+    }
+
+    const c=enrichCandidateFromSources(p,nom,ov,wd);
     renderAdminEnrichResults(c);
     const found=[c.address,c.phone,c.website,c.hours].filter(Boolean).length;
-    adminEnrichStatus(found?`${found}項目の補完候補が見つかりました。`:"補完候補は見つかりませんでした。",found?"success":"");
+
+    const phoneFound=!!c.phone;
+    const webFound=!!c.website;
+    let msg=found?`${found}項目の補完候補が見つかりました。`:"補完候補は見つかりませんでした。";
+    if(found){
+      msg+=` 電話：${phoneFound?"候補あり":"なし"} / HP：${webFound?"候補あり":"なし"}`;
+    }
+    adminEnrichStatus(msg,found?"success":"");
   }catch(e){
     console.error(e);
     adminEnrichStatus("補完候補の取得に失敗しました。時間をおいて再度お試しください。","error");

@@ -1063,3 +1063,13 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .admin-enrich-row small{font-size:12px;line-height:1.5;color:#806f60;word-break:break-word}
 .admin-enrich-empty{padding:12px;color:#8c7b6c;font-size:13px}
 #adminApplyEnrichBtn{width:100%;margin-top:10px}
+
+/* PawPal v20.9 電話・HP補完強化 */
+.admin-enrich-source{
+  display:block;
+  margin-top:4px;
+  font-size:11px;
+  font-style:normal;
+  color:#a07b45;
+  font-weight:700;
+}

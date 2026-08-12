@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.8" />
+  <link rel="stylesheet" href="style.css?v=20.9" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.8</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.9</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -945,7 +945,7 @@
       <div id="adminCloudEditStatus" class="cloud-message"></div><div class="admin-enrich-card">
         <div class="admin-enrich-title">✨ 店舗情報の自動補完候補</div>
         <div class="admin-enrich-note">
-          店名・住所・位置情報から OpenStreetMap / Nominatim / Wikidata / Wikipedia の候補を照合します。
+          店名・住所・位置情報から OpenStreetMap / Overpass / Nominatim / Wikidata を照合し、特に電話番号・公式ホームページ候補を強化します。
           見つかった項目だけ候補表示し、確認してから反映できます。
         </div>
         <button id="adminEnrichBtn" type="button" class="secondary">🔎 補完候補を探す</button>
@@ -961,6 +961,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20.8"></script>
+  <script src="app.js?v=20.9"></script>
 </body>
 </html>
