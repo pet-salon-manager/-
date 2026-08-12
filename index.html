@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=18.8.1" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v18.8</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v18.8.1</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -686,6 +686,58 @@
     </div>
   </div>
 
-  <script src="app.js?v=18.5"></script>
+  
+  <div id="reservationModal" class="place-modal sub-place-modal" aria-hidden="true">
+    <div class="place-modal-card">
+      <div class="place-modal-head">
+        <div class="place-title-wrap">
+          <div class="place-detail-emoji">📅</div>
+          <div>
+            <h3>予約</h3>
+            <div id="reservationPlaceName" class="place-detail-meta"></div>
+          </div>
+        </div>
+        <button id="closeReservationBtn" type="button" class="place-modal-close">×</button>
+      </div>
+
+      <div class="result-box">
+        現在は「予約希望」をPawPal内に保存します。店舗へ自動送信はされません。
+      </div>
+
+      <label>希望日
+        <input id="reservationDate" type="date">
+      </label>
+      <label>希望時間
+        <input id="reservationTime" type="time">
+      </label>
+      <label>内容
+        <textarea id="reservationNote" placeholder="例：診察、トリミング、ホテル1泊など"></textarea>
+      </label>
+
+      <button id="saveReservationBtn" type="button" class="primary">📅 予約希望を保存</button>
+      <button id="closeReservationBottomBtn" type="button" class="place-bottom-close">← お店詳細に戻る</button>
+    </div>
+  </div>
+
+  <div id="couponModal" class="place-modal sub-place-modal" aria-hidden="true">
+    <div class="place-modal-card">
+      <div class="place-modal-head">
+        <div class="place-title-wrap">
+          <div class="place-detail-emoji">🎫</div>
+          <div>
+            <h3>クーポン</h3>
+            <div id="couponPlaceName" class="place-detail-meta"></div>
+          </div>
+        </div>
+        <button id="closeCouponBtn" type="button" class="place-modal-close">×</button>
+      </div>
+
+      <div id="couponBody" class="coupon-card"></div>
+      <button id="useCouponBtn" type="button" class="primary">🎟️ クーポンを保存</button>
+      <button id="closeCouponBottomBtn" type="button" class="place-bottom-close">← お店詳細に戻る</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=18.8.1"></script>
 </body>
 </html>

@@ -844,12 +844,10 @@ function openReservation(){
   $("#reservationDate").value="";
   $("#reservationTime").value="";
   $("#reservationNote").value="";
-  $("#reservationModal").classList.add("open");
-  $("#reservationModal").setAttribute("aria-hidden","false");
+  const rm=$("#reservationModal"); if(!rm)return; rm.classList.add("open"); rm.setAttribute("aria-hidden","false");
 }
 function closeReservation(){
-  $("#reservationModal").classList.remove("open");
-  $("#reservationModal").setAttribute("aria-hidden","true");
+  const rm=$("#reservationModal"); if(!rm)return; rm.classList.remove("open"); rm.setAttribute("aria-hidden","true");
 }
 function openCoupon(){
   if(!currentPlaceId)return;
@@ -861,18 +859,16 @@ function openCoupon(){
     <div class="coupon-code">${escapeHtml(p.coupon.code)}</div>
     <div class="meta">店頭提示を想定したサンプルクーポンです。</div>
   `;
-  $("#couponModal").classList.add("open");
-  $("#couponModal").setAttribute("aria-hidden","false");
+  const cm=$("#couponModal"); if(!cm)return; cm.classList.add("open"); cm.setAttribute("aria-hidden","false");
 }
 function closeCoupon(){
-  $("#couponModal").classList.remove("open");
-  $("#couponModal").setAttribute("aria-hidden","true");
+  const cm=$("#couponModal"); if(!cm)return; cm.classList.remove("open"); cm.setAttribute("aria-hidden","true");
 }
 
-$("#placeReserveBtn").onclick=openReservation;
-$("#placeCouponBtn").onclick=openCoupon;
+bindClick("#placeReserveBtn",openReservation);
+bindClick("#placeCouponBtn",openCoupon);
 
-$("#saveReservationBtn").onclick=()=>{
+if($("#saveReservationBtn")) $("#saveReservationBtn").onclick=()=>{
   if(!currentPlaceId)return;
   const p=places.find(x=>x.id===currentPlaceId);if(!p)return;
   const date=$("#reservationDate").value;
@@ -893,7 +889,7 @@ $("#saveReservationBtn").onclick=()=>{
   setTimeout(()=>{closeReservation();$("#saveReservationBtn").textContent="📅 予約希望を保存";},900);
 };
 
-$("#useCouponBtn").onclick=()=>{
+if($("#useCouponBtn")) $("#useCouponBtn").onclick=()=>{
   if(!currentPlaceId)return;
   const p=places.find(x=>x.id===currentPlaceId);if(!p||!p.coupon)return;
   const exists=state.savedCoupons.some(x=>x.placeId===p.id&&x.code===p.coupon.code);
@@ -908,19 +904,17 @@ $("#useCouponBtn").onclick=()=>{
   setTimeout(()=>$("#useCouponBtn").textContent="🎟️ クーポンを保存",900);
 };
 
-$("#closeReservationBtn").onclick=closeReservation;
-$("#closeReservationBottomBtn").onclick=closeReservation;
-$("#reservationModal").addEventListener("click",e=>{if(e.target.id==="reservationModal")closeReservation();});
+bindClick("#closeReservationBtn",closeReservation);
+bindClick("#closeReservationBottomBtn",closeReservation);
+bindEvent("#reservationModal","click",e=>{if(e.target.id==="reservationModal")closeReservation();});
 
-$("#closeCouponBtn").onclick=closeCoupon;
-$("#closeCouponBottomBtn").onclick=closeCoupon;
-$("#couponModal").addEventListener("click",e=>{if(e.target.id==="couponModal")closeCoupon();});
+bindClick("#closeCouponBtn",closeCoupon);
+bindClick("#closeCouponBottomBtn",closeCoupon);
+bindEvent("#couponModal","click",e=>{if(e.target.id==="couponModal")closeCoupon();});
 
-$("#closePlaceDetailBtn").onclick=closePlaceDetail;
-$("#closePlaceDetailBottomBtn").onclick=closePlaceDetail;
-$("#placeDetailModal").addEventListener("click",e=>{
-  if(e.target.id==="placeDetailModal")closePlaceDetail();
-});
+bindClick("#closePlaceDetailBtn",closePlaceDetail);
+bindClick("#closePlaceDetailBottomBtn",closePlaceDetail);
+bindEvent("#placeDetailModal","click",e=>{if(e.target.id==="placeDetailModal")closePlaceDetail();});
 
 
 
@@ -2401,3 +2395,12 @@ try{loadEmergencyForm();}catch(e){}
 
 try{refreshSessionIfNeeded().then(()=>{renderCloudSettings();loadCurrentFamily();});}catch(e){}
 
+
+function bindClick(selector, handler){
+  const el=$(selector);
+  if(el) el.onclick=handler;
+}
+function bindEvent(selector, eventName, handler){
+  const el=$(selector);
+  if(el) el.addEventListener(eventName, handler);
+}

@@ -868,3 +868,15 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   font-family:monospace;font-size:18px;letter-spacing:2px;
   padding:10px;border-radius:12px;background:#fff;margin:12px 0
 }
+
+/* v18.8.1 modal/tap hardening */
+.place-modal.open{pointer-events:auto}
+.place-modal-card{position:relative;z-index:1;pointer-events:auto}
+.place-modal-card button,
+.place-modal-card a,
+.place-modal-card input,
+.place-modal-card textarea{
+  pointer-events:auto;
+  touch-action:manipulation;
+}
+.sub-place-modal{z-index:10040}
