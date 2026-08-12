@@ -1205,6 +1205,217 @@ function findPlaceByStableKey(key){
   return adminMaster.find(p=>placeStableKey(p)===key) || null;
 }
 
+
+const FREE_API_QUEUE_STORAGE="pawpal_free_api_enrich_queue_v21";
+let freeApiQueueRunning=false;
+let freeApiQueuePaused=false;
+
+function sleepMs(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+
+function loadFreeApiQueueResults(){
+  try{
+    const v=JSON.parse(localStorage.getItem(FREE_API_QUEUE_STORAGE)||"[]");
+    return Array.isArray(v)?v:[];
+  }catch(e){return []}
+}
+function saveFreeApiQueueResults(rows){
+  localStorage.setItem(FREE_API_QUEUE_STORAGE,JSON.stringify(rows.slice(-300)));
+}
+function freeQueueTargetMatches(p,target){
+  if(target==="address")return hasMissingAddress(p);
+  if(target==="phone")return hasMissingPhone(p);
+  if(target==="website")return hasMissingWebsite(p);
+  return hasMissingStoreInfo(p);
+}
+function freeQueueStoreKey(p){
+  return String(p.cloudStoreId||placeStableKey(p)||"");
+}
+function candidateHasUsefulData(c,p,target){
+  if(!c)return false;
+  if(target==="address")return !!c.address;
+  if(target==="phone")return !!c.phone;
+  if(target==="website")return !!c.website;
+  return !!(c.address||c.phone||c.website||c.hours);
+}
+function freeCandidateSummary(c){
+  const a=[];
+  if(c?.address)a.push("住所");
+  if(c?.phone)a.push("電話");
+  if(c?.website)a.push("HP");
+  if(c?.hours)a.push("営業時間");
+  return a.join(" / ")||"候補なし";
+}
+function renderFreeApiQueueStats(){
+  const rows=loadFreeApiQueueResults();
+  const host=document.getElementById("freeApiQueueStats");
+  if(!host)return;
+  const found=rows.filter(r=>r.status==="found").length;
+  const none=rows.filter(r=>r.status==="none").length;
+  host.textContent=`確認待ち ${found}件 ・ 候補なし ${none}件 ・ 保存済み候補 ${rows.length}件`;
+}
+function renderFreeApiQueueResults(){
+  renderFreeApiQueueStats();
+  const host=document.getElementById("freeApiQueueResults");
+  if(!host)return;
+  const rows=loadFreeApiQueueResults().filter(r=>r.status==="found").slice(-20).reverse();
+  if(!rows.length){
+    host.innerHTML='<div class="free-api-queue-empty">確認待ちの候補はまだありません。</div>';
+    return;
+  }
+  host.innerHTML=rows.map(r=>`
+    <div class="free-api-result-card">
+      <div class="free-api-result-main">
+        <b>${escapeHtml(r.name||"名称未登録")}</b>
+        <small>${escapeHtml(r.summary||"")}</small>
+      </div>
+      <button type="button" class="secondary free-api-review-one" data-free-store-key="${escapeHtml(r.storeKey)}">確認</button>
+    </div>
+  `).join("");
+  host.querySelectorAll(".free-api-review-one").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const key=btn.dataset.freeStoreKey||"";
+      if(key)openFreeApiQueueReview(key);
+    });
+  });
+}
+function setFreeQueueProgress(text,current=0,total=0){
+  const e=document.getElementById("freeApiQueueProgress");
+  if(e)e.textContent=text;
+  const bar=document.getElementById("freeApiQueueMeterBar");
+  if(bar)bar.style.width=total?`${Math.max(0,Math.min(100,current/total*100))}%`:"0%";
+}
+async function getFreeEnrichmentCandidate(p){
+  let nom=null,ov=null,wd=null;
+  try{
+    const n=await fetchNominatimCandidates(p);
+    nom=pickBestEnrichCandidate(n,p);
+  }catch(e){console.warn("queue Nominatim",e)}
+
+  // Nominatim public serviceへの連続アクセスを避ける
+  await sleepMs(1100);
+
+  try{
+    ov=await fetchOverpassDetails(p);
+  }catch(e){console.warn("queue Overpass",e)}
+
+  let qid=ov?.tags?.wikidata||nom?.extratags?.wikidata||"";
+  if(!qid){
+    try{
+      const hit=await searchWikidataByName(p.name,"ja");
+      qid=hit?.id||"";
+    }catch(e){console.warn("queue Wikidata search",e)}
+  }
+  if(qid){
+    try{wd=await fetchWikidataEntity(qid)}catch(e){console.warn("queue Wikidata",e)}
+  }
+  return enrichCandidateFromSources(p,nom,ov,wd);
+}
+function mergeFreeQueueResult(entry){
+  const rows=loadFreeApiQueueResults();
+  const i=rows.findIndex(r=>r.storeKey===entry.storeKey);
+  if(i>=0)rows[i]=entry; else rows.push(entry);
+  saveFreeApiQueueResults(rows);
+}
+async function runFreeApiQueue(){
+  if(freeApiQueueRunning)return;
+  const target=document.getElementById("freeQueueTarget")?.value||"all";
+  const limit=Math.max(1,Math.min(20,Number(document.getElementById("freeQueueLimit")?.value||10)));
+  const stores=getAdminMasterPlaces()
+    .filter(p=>p.cloudStoreId&&freeQueueTargetMatches(p,target))
+    .slice(0,limit);
+
+  if(!stores.length){
+    alert("選択した条件の未入力店舗はありません。");
+    return;
+  }
+
+  freeApiQueueRunning=true;
+  freeApiQueuePaused=false;
+  const startBtn=document.getElementById("startFreeApiQueueBtn");
+  const pauseBtn=document.getElementById("pauseFreeApiQueueBtn");
+  if(startBtn)startBtn.disabled=true;
+  if(pauseBtn)pauseBtn.disabled=false;
+
+  let found=0;
+  try{
+    for(let i=0;i<stores.length;i++){
+      while(freeApiQueuePaused && freeApiQueueRunning)await sleepMs(400);
+      if(!freeApiQueueRunning)break;
+
+      const p=stores[i];
+      setFreeQueueProgress(`${i+1}/${stores.length}件目：${p.name||"名称未登録"} を照合中…`,i,stores.length);
+
+      let c=null,status="none",error="";
+      try{
+        c=await getFreeEnrichmentCandidate(p);
+        status=candidateHasUsefulData(c,p,target)?"found":"none";
+        if(status==="found")found++;
+      }catch(e){
+        console.error(e);
+        status="error";
+        error=String(e?.message||e);
+      }
+
+      mergeFreeQueueResult({
+        storeKey:freeQueueStoreKey(p),
+        cloudStoreId:p.cloudStoreId||"",
+        name:p.name||"",
+        prefecture:p.prefecture||p.area||"",
+        checkedAt:new Date().toISOString(),
+        status,
+        error,
+        summary:freeCandidateSummary(c),
+        candidate:c||{}
+      });
+      renderFreeApiQueueResults();
+
+      // Overpass / Wikidata側にも連打しない
+      if(i<stores.length-1)await sleepMs(1200);
+    }
+    setFreeQueueProgress(`完了：${stores.length}件を照合し、${found}件に候補が見つかりました。`,stores.length,stores.length);
+  }finally{
+    freeApiQueueRunning=false;
+    freeApiQueuePaused=false;
+    if(startBtn)startBtn.disabled=false;
+    if(pauseBtn){pauseBtn.disabled=true;pauseBtn.textContent="⏸️ 一時停止";}
+    renderFreeApiQueueResults();
+  }
+}
+function toggleFreeApiQueuePause(){
+  if(!freeApiQueueRunning)return;
+  freeApiQueuePaused=!freeApiQueuePaused;
+  const btn=document.getElementById("pauseFreeApiQueueBtn");
+  if(btn)btn.textContent=freeApiQueuePaused?"▶️ 再開":"⏸️ 一時停止";
+  const e=document.getElementById("freeApiQueueProgress");
+  if(e && freeApiQueuePaused)e.textContent="一時停止中";
+}
+function openFreeApiQueueReview(storeKey){
+  const rows=loadFreeApiQueueResults();
+  const row=rows.find(r=>r.storeKey===storeKey&&r.status==="found");
+  if(!row)return;
+
+  const p=getAdminMasterPlaces().find(x=>freeQueueStoreKey(x)===storeKey)||findPlaceByStableKey(storeKey);
+  if(!p){
+    alert("店舗データが見つかりません。店舗マスタを再同期してください。");
+    return;
+  }
+
+  openAdminEditPlace(placeStableKey(p));
+  setTimeout(()=>{
+    const c=row.candidate||{};
+    renderAdminEnrichResults(c);
+    adminEnrichStatus(`自動補完キューの候補です：${row.summary||""}。内容と出典を確認してください。`,"success");
+  },0);
+}
+function reviewFirstFreeApiCandidate(){
+  const row=loadFreeApiQueueResults().find(r=>r.status==="found");
+  if(!row){
+    alert("確認待ちの候補はありません。先に自動補完を開始してください。");
+    return;
+  }
+  openFreeApiQueueReview(row.storeKey);
+}
+
 function adminEnrichStatus(text,type=""){
   const e=$("#adminEnrichStatus");
   if(!e)return;
@@ -1259,6 +1470,34 @@ async function fetchOverpassDetails(p){
     return nm && (nm===target || nm.includes(target) || target.includes(nm));
   });
   return candidates[0]||null;
+}
+
+
+async function searchWikidataByName(name,lang="ja"){
+  const q=String(name||"").trim();
+  if(!q)return null;
+  const url=`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(q)}&language=${encodeURIComponent(lang)}&uselang=${encodeURIComponent(lang)}&format=json&origin=*&limit=5`;
+  const r=await fetch(url,{headers:{"Accept":"application/json"}});
+  if(!r.ok)throw new Error("Wikidata search "+r.status);
+  const data=await r.json();
+  const rows=data?.search||[];
+  return rows.length?rows[0]:null;
+}
+async function fetchWikipediaSummaryByTitle(title){
+  if(!title)return null;
+  const url=`https://ja.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+  const r=await fetch(url,{headers:{"Accept":"application/json"}});
+  if(!r.ok)return null;
+  return await r.json();
+}
+function openOfficialWebSearch(){
+  const p=currentAdminEditPlace?.() || (()=> {
+    const key=document.getElementById("adminEditPlaceKey")?.value||"";
+    return key?findPlaceByStableKey(key):null;
+  })();
+  if(!p)return;
+  const q=[p.name,p.address||p.prefecture||"","公式サイト"].filter(Boolean).join(" ");
+  window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`,"_blank","noopener");
 }
 
 async function fetchWikidataEntity(qid){
@@ -1361,9 +1600,9 @@ async function findAdminEnrichment(){
   const p=findPlaceByStableKey(key);
   if(!p)return;
   try{
-    adminEnrichStatus("候補を検索中… OpenStreetMap / Nominatim / Wikidata を照合しています。");
+    adminEnrichStatus("無料ソースを照合中… OpenStreetMap / Nominatim / Wikidata / Wikipedia");
     $("#adminEnrichResults").innerHTML="";
-    let nom=null,ov=null,wd=null;
+    let nom=null,ov=null,wd=null,wdSearch=null;
 
     try{
       const n=await fetchNominatimCandidates(p);
@@ -1374,10 +1613,17 @@ async function findAdminEnrichment(){
       ov=await fetchOverpassDetails(p);
     }catch(e){console.warn("Overpass",e)}
 
-    const qid=
+    let qid=
       ov?.tags?.wikidata ||
       nom?.extratags?.wikidata ||
       "";
+
+    if(!qid){
+      try{
+        wdSearch=await searchWikidataByName(p.name,"ja");
+        qid=wdSearch?.id||"";
+      }catch(e){console.warn("Wikidata search",e)}
+    }
 
     if(qid){
       try{
@@ -1387,18 +1633,19 @@ async function findAdminEnrichment(){
 
     const c=enrichCandidateFromSources(p,nom,ov,wd);
     renderAdminEnrichResults(c);
-    const found=[c.address,c.phone,c.website,c.hours].filter(Boolean).length;
 
+    const found=[c.address,c.phone,c.website,c.hours].filter(Boolean).length;
     const phoneFound=!!c.phone;
     const webFound=!!c.website;
-    let msg=found?`${found}項目の補完候補が見つかりました。`:"補完候補は見つかりませんでした。";
-    if(found){
-      msg+=` 電話：${phoneFound?"候補あり":"なし"} / HP：${webFound?"候補あり":"なし"}`;
-    }
+    let msg=found
+      ?`${found}項目の無料補完候補が見つかりました。`
+      :"無料ソースでは新しい候補が見つかりませんでした。";
+    if(found)msg+=` 電話：${phoneFound?"候補あり":"なし"} / HP：${webFound?"候補あり":"なし"}`;
+    if(!webFound)msg+=" 公式HPが見つからない場合は「公式サイトをWeb検索」を使えます。";
     adminEnrichStatus(msg,found?"success":"");
   }catch(e){
     console.error(e);
-    adminEnrichStatus("補完候補の取得に失敗しました。時間をおいて再度お試しください。","error");
+    adminEnrichStatus("無料ソースからの候補取得に失敗しました。時間をおいて再度お試しください。","error");
   }
 }
 
@@ -3901,3 +4148,14 @@ document.addEventListener("DOMContentLoaded",()=>{
 });
 
 document.addEventListener("DOMContentLoaded",()=>{const b=document.getElementById("refreshNationalDashboardBtn");if(b)b.addEventListener("click",renderNationalMasterDashboard)});
+
+document.addEventListener("DOMContentLoaded",()=>{const b=document.getElementById("adminOfficialWebSearchBtn");if(b)b.addEventListener("click",openOfficialWebSearch);});
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+bindEvent("#startFreeApiQueueBtn","click",runFreeApiQueue);
+bindEvent("#pauseFreeApiQueueBtn","click",toggleFreeApiQueuePause);
+bindEvent("#reviewFreeApiQueueBtn","click",reviewFirstFreeApiCandidate);
+});
+
+document.addEventListener("DOMContentLoaded",()=>{try{renderFreeApiQueueResults();}catch(e){console.warn(e)}});

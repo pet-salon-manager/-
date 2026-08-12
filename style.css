@@ -1099,3 +1099,46 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 .national-master-missing{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.national-master-missing span{background:#fff3d6;padding:7px 9px;border-radius:999px;font-size:12px;color:#7d6655}.national-master-details{margin-top:12px;border-top:1px solid #f3e3eb;padding-top:10px}.national-master-details summary{font-weight:850;color:#66525f;cursor:pointer}
 .master-count-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.master-count-chip{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #efdce6;background:white;border-radius:12px;padding:10px;font-size:12px;color:#6d5966}.master-count-chip b{color:#b64f79}
 .duplicate-candidate-list{display:grid;gap:8px;margin-top:10px}.duplicate-candidate-card{padding:10px;border-radius:13px;background:#fff;border:1px solid #eddce5}.duplicate-candidate-card div{display:flex;justify-content:space-between;gap:8px}.duplicate-candidate-card span{font-size:11px;color:#a47855}.duplicate-candidate-card small{display:block;color:#877480;margin-top:4px;line-height:1.4}.national-master-empty{padding:12px;color:#8f7a87;font-size:12px}
+
+/* PawPal v21.3 無料API補完 */
+.free-source-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  margin:8px 0;padding:7px 10px;border-radius:999px;
+  background:#eefaf1;color:#477451;font-size:12px;font-weight:800;
+  border:1px solid #cfe9d5
+}
+#adminOfficialWebSearchBtn{width:100%;margin-top:8px}
+
+/* PawPal v21.4 無料API自動補完キュー */
+.free-api-queue-panel{
+  margin:16px 0;padding:16px;border:1px solid #d8eadc;border-radius:22px;background:#fbfffc
+}
+.free-api-queue-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.free-api-queue-title{font-size:18px;font-weight:900;color:#51655a}
+.free-api-queue-sub{font-size:12px;line-height:1.55;color:#7c9183;margin-top:4px}
+.free-api-queue-controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+.free-api-queue-controls label{font-size:12px;font-weight:800;color:#66796d}
+.free-api-queue-controls select{
+  width:100%;margin-top:5px;padding:11px;border:1px solid #d7e7da;border-radius:12px;background:white;color:#56675d
+}
+.free-api-queue-actions{display:grid;gap:8px;margin-top:12px}
+.free-api-queue-actions button{width:100%}
+.free-api-queue-progress{margin-top:12px;font-size:13px;font-weight:750;color:#617568;line-height:1.5}
+.free-api-queue-meter{height:8px;background:#edf3ee;border-radius:999px;overflow:hidden;margin-top:8px}
+#freeApiQueueMeterBar{height:100%;width:0;background:#9bc5a5;transition:width .25s ease}
+.free-api-queue-stats{font-size:12px;color:#789080;margin-top:9px}
+.free-api-queue-results{display:grid;gap:7px;margin-top:10px}
+.free-api-result-card{
+  display:flex;justify-content:space-between;gap:8px;align-items:center;
+  padding:10px;border:1px solid #dce9df;border-radius:13px;background:white
+}
+.free-api-result-main{min-width:0}
+.free-api-result-main b{display:block;color:#596a60;font-size:13px}
+.free-api-result-main small{display:block;color:#87968d;font-size:11px;margin-top:3px}
+.free-api-result-card button{width:auto!important;padding:8px 10px!important;white-space:nowrap}
+.free-api-queue-empty{font-size:12px;color:#87968d;padding:8px 2px}
+.free-api-queue-caution{font-size:11px;line-height:1.5;color:#87968d;margin-top:10px}
+@media(max-width:430px){
+  .free-api-queue-controls{grid-template-columns:1fr}
+  .free-api-queue-head{flex-direction:column}
+}

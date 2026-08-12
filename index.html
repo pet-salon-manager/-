@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=21.2" />
+  <link rel="stylesheet" href="style.css?v=21.4" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v21.2</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v21.4</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -878,7 +878,53 @@
           次回の検索でもPawPal側の修正を優先表示します。
         </div>
         <input id="adminPlaceSearch" class="admin-search" placeholder="店名・住所・種類で検索">
-      <section id="nationalMasterDashboard" class="national-master-dashboard">
+      
+      <section id="freeApiQueuePanel" class="free-api-queue-panel">
+        <div class="free-api-queue-head">
+          <div>
+            <div class="free-api-queue-title">🤖 無料API 自動補完キュー</div>
+            <div class="free-api-queue-sub">
+              課金APIは使いません。1店舗ずつ間隔をあけて候補を探し、確認待ちに貯めます。
+            </div>
+          </div>
+          <span class="free-source-badge">💰 API課金なし</span>
+        </div>
+
+        <div class="free-api-queue-controls">
+          <label>対象
+            <select id="freeQueueTarget">
+              <option value="all">⚠️ 住所・電話・HPの未入力</option>
+              <option value="address">📍 住所なし</option>
+              <option value="phone">☎️ 電話なし</option>
+              <option value="website">🌐 HPなし</option>
+            </select>
+          </label>
+          <label>今回調べる件数
+            <select id="freeQueueLimit">
+              <option value="5">5件</option>
+              <option value="10" selected>10件</option>
+              <option value="20">20件</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="free-api-queue-actions">
+          <button id="startFreeApiQueueBtn" type="button" class="primary">▶️ 自動補完を開始</button>
+          <button id="pauseFreeApiQueueBtn" type="button" class="secondary" disabled>⏸️ 一時停止</button>
+          <button id="reviewFreeApiQueueBtn" type="button" class="secondary">👀 候補を確認</button>
+        </div>
+
+        <div id="freeApiQueueProgress" class="free-api-queue-progress">待機中</div>
+        <div class="free-api-queue-meter"><div id="freeApiQueueMeterBar"></div></div>
+        <div id="freeApiQueueStats" class="free-api-queue-stats"></div>
+        <div id="freeApiQueueResults" class="free-api-queue-results"></div>
+
+        <div class="free-api-queue-caution">
+          ※ 無料サービスの負荷を避けるため、店舗ごとに待ち時間を入れます。候補は自動でSupabaseへ保存しません。
+        </div>
+      </section>
+
+<section id="nationalMasterDashboard" class="national-master-dashboard">
   <div class="national-master-head">
     <div><div class="national-master-title">📊 全国店舗マスター分析</div><div class="national-master-sub">Supabase店舗マスタの全件を集計</div></div>
     <button id="refreshNationalDashboardBtn" type="button" class="secondary mini-btn">🔄 更新</button>
@@ -1015,12 +1061,15 @@
 
       <div class="admin-source-note" id="adminEditOriginalInfo"></div>
       <div id="adminCloudEditStatus" class="cloud-message"></div><div class="admin-enrich-card">
-        <div class="admin-enrich-title">✨ 店舗情報の自動補完候補</div>
+        <div class="admin-enrich-title">✨ 無料ソースだけで店舗情報を補完</div>
         <div class="admin-enrich-note">
-          店名・住所・位置情報から OpenStreetMap / Overpass / Nominatim / Wikidata を照合し、特に電話番号・公式ホームページ候補を強化します。
+          課金APIは使いません。OpenStreetMap / Overpass / Nominatim / Wikidata / Wikipedia を照合し、住所・電話・公式ホームページ候補を探します。
           見つかった項目だけ候補表示し、確認してから反映できます。
         </div>
         <button id="adminEnrichBtn" type="button" class="secondary">🔎 補完候補を探す</button>
+        <div id="adminFreeSourceBadge" class="free-source-badge">💰 API課金なし</div>
+        <button id="adminOfficialWebSearchBtn" type="button" class="secondary">🌐 公式サイトをWeb検索</button>
+
         <div id="adminEnrichStatus" class="cloud-message"></div>
         <div id="adminEnrichResults"></div>
       </div>
@@ -1040,6 +1089,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=21.2"></script>
+  <script src="app.js?v=21.4"></script>
 </body>
 </html>
