@@ -1068,7 +1068,7 @@ function renderAdminAllPlaces(){
       <div class="admin-store-info">
         <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}</strong>
         <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
-        <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${p.cloudStoreId?"☁️ Supabase ・ ":""}${escapeHtml(p.source||"PawPal")}${p.isPublished===false?" ・ 🚫非公開":""}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
+        <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${p.cloudStoreId?"☁️ Supabase店舗 ・ ":""}${escapeHtml(p.source||"PawPal")}${p.isPublished===false?" ・ 🚫非公開":""}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
       </div>
       <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
     </div>
@@ -3094,10 +3094,15 @@ function mergeWithCloudStores(items){
     .filter(p=>p.isPublished!==false)
     .map(cloudStoreForNearby)
     .filter(p=>!nearbyUserLocation || !Number.isFinite(p.distance) || p.distance<=50);
-  return dedupePlaces([...(items||[]),...cloud]);
+
+  // Supabase店舗を先に入れて、同一店舗が外部検索にも存在する場合は
+  // Supabase版（cloudStoreId付き）を残す。
+  const merged=dedupePlaces([...cloud,...(items||[])]);
+  return merged;
 }
 function refreshPlacesWithCloud(){
-  places=mergeWithCloudStores(places.filter(p=>!p.cloudStoreId));
+  const externalOnly=(places||[]).filter(p=>!p.cloudStoreId);
+  places=mergeWithCloudStores(externalOnly);
   applyAllPlaceOverrides(places);
   places.sort((a,b)=>(a.distance??9999)-(b.distance??9999));
   if(typeof applyRecommendedOverrides==="function")applyRecommendedOverrides();
