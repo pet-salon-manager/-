@@ -988,3 +988,10 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   box-shadow:0 5px 14px rgba(233,105,164,.18);
   transform:translateY(-1px);
 }
+
+.store-master-panel{margin:14px 0;padding:16px;border:1px solid #f1cfe0;border-radius:20px;background:#fff}
+.store-master-title{font-weight:800;color:#5e4657}.store-master-title span{float:right;font-size:12px}
+.store-master-panel summary{padding:10px 0;font-weight:700;color:#b45c86}
+.store-master-panel label{display:block;font-size:12px;margin:8px 0}
+.store-master-panel input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #ead8e2;border-radius:12px}
+.store-master-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.store-master-actions button{border:0;border-radius:12px;padding:12px;background:#ffe1ef;color:#9b4d73;font-weight:700}

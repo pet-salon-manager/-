@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=19.2" />
-</head>
+  <link rel="stylesheet" href="style.css?v=20.0" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v19.2</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.0</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -190,7 +190,13 @@
             <button class="chip place-filter" data-filter="おすすめ">⭐ おすすめ</button>
         </div>
 
-        <div id="placeFilterHelp" class="multi-filter-help">
+        <div id="storeMasterPanel" class="store-master-panel">
+<div class="store-master-title">☁️ 店舗マスタ同期 <span id="storeMasterBadge">未接続</span></div>
+<details><summary>Supabase接続設定</summary>
+<label>Project URL<input id="storeSupabaseUrl" type="url"></label>
+<label>Anon Key<input id="storeSupabaseKey" type="password"></label>
+<div class="store-master-actions"><button id="saveStoreCloudBtn">接続情報を保存</button><button id="syncStoreCloudBtn">店舗マスタを同期</button></div>
+</details></div><div id="placeFilterHelp" class="multi-filter-help">
           複数選択できます。例：🏨ホテル＋❤️お気に入り / 🏥病院＋⭐おすすめ
         </div>
 
@@ -873,6 +879,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=19.2"></script>
+  <script src="app.js?v=20.0"></script>
 </body>
 </html>

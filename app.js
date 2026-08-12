@@ -2933,3 +2933,36 @@ bindClick("#closeAdminEditPlaceBottomBtn",closeAdminEditPlace);
 bindClick("#saveAdminEditPlaceBtn",saveAdminEditedPlace);
 bindClick("#resetAdminEditPlaceBtn",resetAdminEditedPlace);
 bindEvent("#adminEditPlaceModal","click",e=>{if(e.target.id==="adminEditPlaceModal")closeAdminEditPlace();});
+
+/* PawPal v20.0 Supabase Store Master */
+const STORE_CLOUD_CFG_KEY="pawpal_store_cloud_v20";
+let storeCloudClient=null;
+function storeCfg(){try{return JSON.parse(localStorage.getItem(STORE_CLOUD_CFG_KEY)||"{}")}catch(e){return {}}}
+function storeBadge(t){const e=document.getElementById("storeMasterBadge");if(e)e.textContent=t}
+function initStoreCloud(){
+ const c=storeCfg(),u=document.getElementById("storeSupabaseUrl"),k=document.getElementById("storeSupabaseKey");
+ if(u&&!u.value)u.value=c.url||""; if(k&&!k.value)k.value=c.key||"";
+ if(!c.url||!c.key||!window.supabase){storeBadge("未接続");return null}
+ try{storeCloudClient=window.supabase.createClient(c.url,c.key);storeBadge("設定済み");return storeCloudClient}catch(e){storeBadge("設定エラー");return null}
+}
+function cloudStore(r){return {id:r.external_id||r.id,name:r.name,type:r.primary_type,prefecture:r.prefecture||"",address:r.address||"",website:r.website||"",phone:r.phone||"",hours:r.business_hours||"",lat:Number(r.latitude),lon:Number(r.longitude),recommended:!!r.is_recommended,coupon:r.coupon_text||"",reservationUrl:r.reservation_url||"",source:r.source_name||"PawPal店舗マスタ",cloudStoreId:r.id}}
+async function syncStoreMaster(){
+ if(!storeCloudClient&&!initStoreCloud()){alert("Supabase接続設定を先に保存してください。");return}
+ storeBadge("同期中…");
+ const {data,error}=await storeCloudClient.from("pawpal_stores").select("*").eq("is_published",true).order("name");
+ if(error){console.error(error);storeBadge("同期失敗");alert("店舗マスタの同期に失敗しました。SQLと接続設定を確認してください。");return}
+ const rows=(data||[]).map(cloudStore);
+ localStorage.setItem("pawpal_store_master_cache_v20",JSON.stringify(rows));
+ window.pawpalCloudStores=rows;
+ storeBadge("同期済み "+rows.length+"件");
+ if(typeof renderPlaces==="function")renderPlaces();
+}
+document.addEventListener("DOMContentLoaded",()=>{
+ initStoreCloud();
+ document.getElementById("saveStoreCloudBtn")?.addEventListener("click",()=>{
+  const url=document.getElementById("storeSupabaseUrl")?.value.trim(),key=document.getElementById("storeSupabaseKey")?.value.trim();
+  if(!url||!key){alert("Project URL と Anon Key を入力してください。");return}
+  localStorage.setItem(STORE_CLOUD_CFG_KEY,JSON.stringify({url,key}));initStoreCloud();alert("接続情報を保存しました。");
+ });
+ document.getElementById("syncStoreCloudBtn")?.addEventListener("click",syncStoreMaster);
+});
