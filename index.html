@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20.5" />
+  <link rel="stylesheet" href="style.css?v=20.6" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v20.5</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v20.6</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -831,6 +831,9 @@
         <div class="admin-store-filter-chips">
           <button id="adminStoreFilterAll" type="button" class="admin-filter-chip active">すべて</button>
           <button id="adminStoreFilterMissing" type="button" class="admin-filter-chip">⚠️ 未入力あり</button>
+          <button id="adminStoreFilterNoAddress" type="button" class="admin-filter-chip">📍 住所なし</button>
+          <button id="adminStoreFilterNoPhone" type="button" class="admin-filter-chip">☎️ 電話なし</button>
+          <button id="adminStoreFilterNoWebsite" type="button" class="admin-filter-chip">🌐 HPなし</button>
           <button id="adminStoreFilterRecommended" type="button" class="admin-filter-chip">⭐ おすすめ</button>
           <button id="adminStoreFilterPublished" type="button" class="admin-filter-chip">🌐 公開中</button>
           <button id="adminStoreFilterHidden" type="button" class="admin-filter-chip">🚫 非公開</button>
@@ -948,6 +951,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20.5"></script>
+  <script src="app.js?v=20.6"></script>
 </body>
 </html>

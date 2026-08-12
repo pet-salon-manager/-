@@ -1058,17 +1058,27 @@ function adminPlaceHaystack(p){
 
 let adminStoreFilterMode="all";
 
-function hasMissingStoreInfo(p){
+
+function hasMissingAddress(p){
   const address=String(p.address||"").trim();
-  const phone=String(p.phone||"").trim();
-  const url=String(p.url||p.website||"").trim();
-  return !address || address==="住所情報なし" || address==="住所未登録" || !phone || !url;
+  return !address || address==="住所情報なし" || address==="住所未登録";
+}
+function hasMissingPhone(p){
+  return !String(p.phone||"").trim();
+}
+function hasMissingWebsite(p){
+  return !String(p.url||p.website||"").trim();
+}
+
+function hasMissingStoreInfo(p){
+  return hasMissingAddress(p) || hasMissingPhone(p) || hasMissingWebsite(p);
 }
 function fillAdminPrefFilter(){
   const sel=$("#adminStorePrefFilter");
   if(!sel)return;
   const current=sel.value;
-  const prefs=[...new Set((places||[])
+  const source=(typeof getAdminMasterPlaces==="function")?getAdminMasterPlaces():(places||[]);
+  const prefs=[...new Set(source
     .map(p=>String(p.prefecture||p.area||"").trim())
     .filter(Boolean))]
     .sort((a,b)=>a.localeCompare(b,"ja"));
@@ -1079,7 +1089,7 @@ function fillAdminPrefFilter(){
 function setAdminStoreFilter(mode){
   adminStoreFilterMode=mode||"all";
   document.querySelectorAll(".admin-filter-chip").forEach(b=>b.classList.remove("active"));
-  const map={all:"#adminStoreFilterAll",missing:"#adminStoreFilterMissing",recommended:"#adminStoreFilterRecommended",published:"#adminStoreFilterPublished",hidden:"#adminStoreFilterHidden"};
+  const map={all:"#adminStoreFilterAll",missing:"#adminStoreFilterMissing",noAddress:"#adminStoreFilterNoAddress",noPhone:"#adminStoreFilterNoPhone",noWebsite:"#adminStoreFilterNoWebsite",recommended:"#adminStoreFilterRecommended",published:"#adminStoreFilterPublished",hidden:"#adminStoreFilterHidden"};
   $(map[adminStoreFilterMode]||map.all)?.classList.add("active");
   renderAdminAllPlaces();
 }
@@ -1089,32 +1099,46 @@ function adminStoreMatchesFilter(p){
   if(type && p.type!==type)return false;
   if(pref && String(p.prefecture||p.area||"")!==pref)return false;
   if(adminStoreFilterMode==="missing")return hasMissingStoreInfo(p);
+  if(adminStoreFilterMode==="noAddress")return hasMissingAddress(p);
+  if(adminStoreFilterMode==="noPhone")return hasMissingPhone(p);
+  if(adminStoreFilterMode==="noWebsite")return hasMissingWebsite(p);
   if(adminStoreFilterMode==="recommended")return !!p.recommended;
   if(adminStoreFilterMode==="published")return p.isPublished!==false;
   if(adminStoreFilterMode==="hidden")return p.isPublished===false;
   return true;
 }
 
+
+function getAdminMasterPlaces(){
+  const cloud=getCloudStoreCache().map(p=>({...p,emoji:p.emoji||placeTypeEmoji(p.type)}));
+  const external=(places||[]).filter(p=>!p.cloudStoreId);
+  return dedupePlaces([...cloud,...external]);
+}
+
 function renderAdminAllPlaces(){
   const box=$("#adminAllPlacesList");
   if(!box)return;
-  fillAdminPrefFilter();
+  const adminMaster=getAdminMasterPlaces();
   const q=($("#adminPlaceSearch")?.value||"").trim().toLowerCase();
-  const arr=[...places]
+  const arr=[...adminMaster]
     .filter(p=>!q || adminPlaceHaystack(p).includes(q))
     .filter(adminStoreMatchesFilter)
     .sort((a,b)=>(a.distance??9999)-(b.distance??9999));
 
+  fillAdminPrefFilter();
   const summary=$("#adminStoreFilterSummary");
   if(summary){
-    const missing=(places||[]).filter(hasMissingStoreInfo).length;
-    summary.textContent=`表示 ${arr.length}件 / 全${places.length}件 ・ 未入力あり ${missing}件`;
+    const missing=adminMaster.filter(hasMissingStoreInfo).length;
+    const noAddress=adminMaster.filter(hasMissingAddress).length;
+    const noPhone=adminMaster.filter(hasMissingPhone).length;
+    const noWebsite=adminMaster.filter(hasMissingWebsite).length;
+    summary.textContent=`表示 ${arr.length}件 / 全${adminMaster.length}件 ・ 未入力 ${missing}件（住所 ${noAddress} / 電話 ${noPhone} / HP ${noWebsite}）`;
   }
 
   box.innerHTML=arr.length?arr.map(p=>`
     <div class="admin-store-row">
       <div class="admin-store-info">
-        <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}${hasMissingStoreInfo(p)?' <span class="missing-info-badge">⚠️未入力</span>':''}</strong>
+        <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}${hasMissingAddress(p)?' <span class="missing-info-badge">📍住所</span>':''}${hasMissingPhone(p)?' <span class="missing-info-badge">☎️電話</span>':''}${hasMissingWebsite(p)?' <span class="missing-info-badge">🌐HP</span>':''}</strong>
         <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
         <span>${Number.isFinite(p.distance)?`約 ${p.distance.toFixed(1)} km ・ `:""}${p.cloudStoreId?"☁️ Supabase店舗 ・ ":""}${escapeHtml(p.source||"PawPal")}${p.isPublished===false?" ・ 🚫非公開":""}${p.pawpalEdited?" ・ ✏️修正済み":""}</span>
       </div>
@@ -3082,6 +3106,9 @@ bindEvent("#adminPlaceSearch","input",renderAdminAllPlaces);
 
 bindEvent("#adminStoreFilterAll","click",()=>setAdminStoreFilter("all"));
 bindEvent("#adminStoreFilterMissing","click",()=>setAdminStoreFilter("missing"));
+bindEvent("#adminStoreFilterNoAddress","click",()=>setAdminStoreFilter("noAddress"));
+bindEvent("#adminStoreFilterNoPhone","click",()=>setAdminStoreFilter("noPhone"));
+bindEvent("#adminStoreFilterNoWebsite","click",()=>setAdminStoreFilter("noWebsite"));
 bindEvent("#adminStoreFilterRecommended","click",()=>setAdminStoreFilter("recommended"));
 bindEvent("#adminStoreFilterPublished","click",()=>setAdminStoreFilter("published"));
 bindEvent("#adminStoreFilterHidden","click",()=>setAdminStoreFilter("hidden"));
