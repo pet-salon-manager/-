@@ -1167,7 +1167,13 @@ function renderAdminAllPlaces(){
   });
 }
 function findPlaceByStableKey(key){
-  return places.find(p=>placeStableKey(p)===key);
+  const inCurrent=(places||[]).find(p=>placeStableKey(p)===key);
+  if(inCurrent)return inCurrent;
+
+  // 運営管理は全Supabase店舗を表示するため、
+  // 現在地周辺の places に入っていない店舗も編集対象になる。
+  const adminMaster=(typeof getAdminMasterPlaces==="function")?getAdminMasterPlaces():[];
+  return adminMaster.find(p=>placeStableKey(p)===key) || null;
 }
 
 function adminEnrichStatus(text,type=""){
@@ -1377,7 +1383,10 @@ function openAdminEditPlace(key){
   const p=findPlaceByStableKey(key);
   if($("#adminEnrichResults"))$("#adminEnrichResults").innerHTML="";
   adminEnrichStatus("");
-  if(!p)return;
+  if(!p){
+    alert("店舗データを開けませんでした。店舗マスタを再同期してから、もう一度お試しください。");
+    return;
+  }
   $("#adminEditPlaceKey").value=key;
   $("#adminEditPlaceName").value=p.name||"";
   $("#adminEditPlaceType").value=["病院","トリミング","ホテル","ペットショップ","その他"].includes(p.type)?p.type:"その他";
