@@ -1933,20 +1933,55 @@ function resetAdminEditedPlace(){
 }
 
 let adminRecommendedVisibleCount=20;
+
+function fillMasterStorePrefFilter(){
+  const sel=$("#masterStorePrefFilter");
+  if(!sel)return;
+  const current=sel.value||"";
+  const prefs=[...new Set(getAdminMasterPlaces().map(p=>p.prefecture||p.area||"").filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"ja"));
+  sel.innerHTML='<option value="">すべての都道府県</option>'+
+    prefs.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+  if(prefs.includes(current))sel.value=current;
+}
+
+function masterStoreHaystack(p){
+  return [
+    p.name,p.prefecture,p.area,p.city,p.address,p.type,p.phone,p.url,p.website
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
 function renderAdminRecommendedList(){
   const box=$("#adminRecommendedList");
   if(!box)return;
+
+  fillMasterStorePrefFilter();
+
   const source=(typeof getAdminMasterPlaces==="function"?getAdminMasterPlaces():places)||[];
-  const q=($("#adminPlaceSearch")?.value||"").trim().toLowerCase();
-  const rows=source
-    .filter(p=>!q || adminPlaceHaystack(p).includes(q))
-    .slice(0,adminRecommendedVisibleCount);
+  const q=($("#masterStoreSearch")?.value||"").trim().toLowerCase();
+  const type=($("#masterStoreTypeFilter")?.value||"").trim();
+  const pref=($("#masterStorePrefFilter")?.value||"").trim();
+
+  const filtered=source.filter(p=>{
+    if(q && !masterStoreHaystack(p).includes(q))return false;
+    if(type && String(p.type||"")!==type)return false;
+    const pp=String(p.prefecture||p.area||"");
+    if(pref && pp!==pref)return false;
+    return true;
+  });
+
+  const rows=filtered.slice(0,adminRecommendedVisibleCount);
+  const summary=$("#masterStoreSearchSummary");
+  if(summary){
+    summary.textContent=`表示 ${rows.length}件 / 該当 ${filtered.length}件 / 店舗マスタ全${source.length}件`;
+  }
 
   box.innerHTML=rows.length?rows.map(p=>`
     <div class="admin-store-row">
       <div class="admin-store-info">
         <strong>${p.emoji||placeTypeEmoji(p.type)||"🏪"} ${escapeHtml(p.name||"名称未登録")}</strong>
         <span>${escapeHtml(p.prefecture||p.area||"")}${p.city?"・"+escapeHtml(p.city):""} ・ ${escapeHtml(p.type||"")}</span>
+        ${p.address?`<span>${escapeHtml(p.address)}</span>`:""}
         <span>☁️ PawPal店舗マスタ</span>
       </div>
       <label class="admin-switch">
@@ -1955,13 +1990,13 @@ function renderAdminRecommendedList(){
       </label>
     </div>`).join(""):'<div class="empty">該当する店舗はありません</div>';
 
-  if(source.length>rows.length){
+  if(filtered.length>rows.length){
     box.insertAdjacentHTML("beforeend",`
       <div class="admin-load-more-wrap">
         <button id="adminLoadMoreRecommendedBtn" type="button" class="secondary admin-load-more-btn">
-          ⬇️ 次の${Math.min(20,source.length-rows.length)}件を見る
+          ⬇️ 次の${Math.min(20,filtered.length-rows.length)}件を見る
         </button>
-        <div class="admin-load-more-note">残り ${source.length-rows.length}件</div>
+        <div class="admin-load-more-note">残り ${filtered.length-rows.length}件</div>
       </div>
     `);
   }
@@ -4277,3 +4312,11 @@ bindEvent("#reviewFreeApiQueueBtn","click",reviewFirstFreeApiCandidate);
 document.addEventListener("DOMContentLoaded",()=>{try{renderFreeApiQueueResults();}catch(e){console.warn(e)}});
 
 document.addEventListener("DOMContentLoaded",()=>{const b=document.getElementById("saveAllFetchedStoresToMasterBtn");if(b)b.addEventListener("click",saveAllFetchedStoresToMaster);});
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+bindEvent("#masterStoreSearch","input",()=>{adminRecommendedVisibleCount=20;renderAdminRecommendedList();});
+bindEvent("#masterStoreTypeFilter","change",()=>{adminRecommendedVisibleCount=20;renderAdminRecommendedList();});
+bindEvent("#masterStorePrefFilter","change",()=>{adminRecommendedVisibleCount=20;renderAdminRecommendedList();});
+
+});

@@ -1150,3 +1150,23 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 
 /* PawPal v21.5 全店舗を店舗マスタへ */
 #saveAllFetchedStoresToMasterBtn{width:100%;margin:10px 0;font-weight:850}
+
+/* PawPal v21.5.1 店舗マスタ検索 */
+.master-search-box{
+  margin:12px 0 14px;padding:14px;border-radius:18px;
+  background:#fffafd;border:1px solid #efd8e4
+}
+.master-search-title{font-weight:900;color:#664f5e;margin-bottom:9px}
+#masterStoreSearch{
+  width:100%;box-sizing:border-box;padding:13px 14px;border-radius:14px;
+  border:1px solid #ead7e0;background:white;font-size:16px;color:#5f4d59
+}
+.master-search-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.master-search-row select{
+  width:100%;padding:11px 10px;border-radius:12px;border:1px solid #ead7e0;
+  background:white;color:#66535f
+}
+.master-search-summary{margin-top:8px;font-size:12px;color:#8e7a86}
+@media(max-width:430px){
+  .master-search-row{grid-template-columns:1fr}
+}

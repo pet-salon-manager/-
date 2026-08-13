@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#fff7fb" />
   <title>PawPal スーパーアプリ</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=21.5" />
+  <link rel="stylesheet" href="style.css?v=21.5.1" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">PET SUPER APP</div>
-        <h1>🐾 PawPal <span class="version-badge">v21.5</span></h1>
+        <h1>🐾 PawPal <span class="version-badge">v21.5.1</span></h1>
       </div>
       <button id="themeBtn" class="icon-btn" aria-label="テーマ">🌷</button>
     </header>
@@ -874,6 +874,25 @@
         ☁️ 取得済みの全店舗を店舗マスタへ登録
       </button>
       <div id="saveAllFetchedStoresStatus" class="cloud-message"></div>
+
+      <div class="master-search-box">
+        <div class="master-search-title">🔎 PawPal店舗マスタから探す</div>
+        <input id="masterStoreSearch" type="search" placeholder="店名・都道府県・住所・種類で検索">
+        <div class="master-search-row">
+          <select id="masterStoreTypeFilter">
+            <option value="">すべての種類</option>
+            <option value="病院">🏥 病院</option>
+            <option value="トリミング">✂️ トリミング</option>
+            <option value="ホテル">🏨 ホテル</option>
+            <option value="ペットショップ">🛍️ ペットショップ</option>
+            <option value="その他">🏪 その他</option>
+          </select>
+          <select id="masterStorePrefFilter">
+            <option value="">すべての都道府県</option>
+          </select>
+        </div>
+        <div id="masterStoreSearchSummary" class="master-search-summary"></div>
+      </div>
 <div id="adminRecommendedList" class="admin-store-list"></div>
 
       <div class="admin-custom-block">
@@ -1094,6 +1113,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=21.5"></script>
+  <script src="app.js?v=21.5.1"></script>
 </body>
 </html>
