@@ -1180,3 +1180,8 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
   border-radius:12px;padding:8px 12px;font-weight:800;font-size:13px
 }
 .admin-delete-store-btn:active{transform:scale(.98)}
+
+/* PawPal v21.5.3 おすすめ設定修正 */
+.recommend-switch-wrap{display:flex;flex-direction:column;align-items:center;gap:5px}
+.recommend-switch-label{font-size:11px;font-weight:800;color:#9b7587;white-space:nowrap}
+.admin-switch input:disabled + .admin-slider{opacity:.45}

@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v21-5-2-direct-delete-20260813';
+const CACHE='pawpal-v21-5-3-recommend-fix-20260813';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{

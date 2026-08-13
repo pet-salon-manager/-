@@ -1908,6 +1908,58 @@ async function saveAdminEditedPlace(){
   if(s)s.textContent="✏️ 店舗情報をPawPal側に保存しました";
 }
 
+
+async function setMasterStoreRecommended(storeKey,enabled,checkbox){
+  const p=getAdminMasterPlaces().find(x=>placeStableKey(x)===storeKey) || findPlaceByStableKey(storeKey);
+  if(!p || !p.cloudStoreId){
+    if(checkbox)checkbox.checked=!enabled;
+    alert("店舗マスタの店舗情報を確認できませんでした。店舗マスタを再同期してください。");
+    return;
+  }
+
+  try{
+    if(checkbox)checkbox.disabled=true;
+    const {client}=await requireStoreAdminSession();
+    const {error}=await client
+      .from("pawpal_stores")
+      .update({
+        is_recommended:!!enabled,
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",p.cloudStoreId);
+
+    if(error)throw error;
+
+    p.recommended=!!enabled;
+
+    // ローカルのクラウドキャッシュも即時更新
+    const cached=getCloudStoreCache();
+    const hit=cached.find(x=>x.cloudStoreId===p.cloudStoreId);
+    if(hit)hit.recommended=!!enabled;
+    localStorage.setItem("pawpal_store_master_cache_v20",JSON.stringify(cached));
+    window.pawpalCloudStores=cached;
+
+    // 一覧を再描画
+    renderAdminRecommendedList();
+    renderAdminAllPlaces();
+
+    const s=document.getElementById("adminSaveStatus");
+    if(s)s.textContent=enabled
+      ?`⭐ 「${p.name||"店舗"}」をPawPalおすすめにしました`
+      :`「${p.name||"店舗"}」のおすすめを解除しました`;
+  }catch(e){
+    console.error(e);
+    if(checkbox)checkbox.checked=!enabled;
+    if(String(e?.message||e)==="ADMIN_LOGIN_REQUIRED"){
+      alert("先にPawPal運営管理者としてログインしてください。");
+    }else{
+      alert("おすすめ設定の保存に失敗しました。");
+    }
+  }finally{
+    if(checkbox)checkbox.disabled=false;
+  }
+}
+
 async function deleteStoreDirectFromMaster(storeKey){
   const p=getAdminMasterPlaces().find(x=>placeStableKey(x)===storeKey) || findPlaceByStableKey(storeKey);
   if(!p || !p.cloudStoreId){
@@ -2021,10 +2073,13 @@ function renderAdminRecommendedList(){
         <span>☁️ PawPal店舗マスタ</span>
       </div>
       <div class="master-rec-actions">
-        <label class="admin-switch">
-          <input type="checkbox" data-admin-rec="${escapeHtml(placeStableKey(p))}" ${p.recommended?"checked":""}>
-          <span class="admin-slider"></span>
-        </label>
+        <div class="recommend-switch-wrap">
+          <span class="recommend-switch-label">${p.recommended?"⭐ おすすめ":"おすすめ"}</span>
+          <label class="admin-switch">
+            <input type="checkbox" data-admin-rec="${escapeHtml(placeStableKey(p))}" ${p.recommended?"checked":""}>
+            <span class="admin-slider"></span>
+          </label>
+        </div>
         <button type="button" class="admin-delete-store-btn" data-master-delete-place="${escapeHtml(placeStableKey(p))}">削除</button>
       </div>
     </div>`).join(""):'<div class="empty">該当する店舗はありません</div>';
@@ -2042,8 +2097,7 @@ function renderAdminRecommendedList(){
 
   box.querySelectorAll("[data-admin-rec]").forEach(el=>{
     el.addEventListener("change",()=>{
-      const p=source.find(x=>placeStableKey(x)===el.dataset.adminRec);
-      if(p)setPlaceRecommended(p.id||p.externalId||placeStableKey(p),el.checked);
+      setMasterStoreRecommended(el.dataset.adminRec,el.checked,el);
     });
   });
   box.querySelectorAll("[data-master-delete-place]").forEach(btn=>{
