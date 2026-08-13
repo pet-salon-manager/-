@@ -1159,6 +1159,13 @@ function refreshAdminCloudMaster(){
   }
 }
 
+let adminStoreVisibleCount=20;
+const ADMIN_STORE_PAGE_SIZE=20;
+
+function resetAdminStoreVisibleCount(){
+  adminStoreVisibleCount=ADMIN_STORE_PAGE_SIZE;
+}
+
 function renderAdminAllPlaces(){
   const box=$("#adminAllPlacesList");
   if(!box)return;
@@ -1170,16 +1177,17 @@ function renderAdminAllPlaces(){
     .sort((a,b)=>(a.distance??9999)-(b.distance??9999));
 
   fillAdminPrefFilter();
+  const visible=arr.slice(0,adminStoreVisibleCount);
   const summary=$("#adminStoreFilterSummary");
   if(summary){
     const missing=adminMaster.filter(hasMissingStoreInfo).length;
     const noAddress=adminMaster.filter(hasMissingAddress).length;
     const noPhone=adminMaster.filter(hasMissingPhone).length;
     const noWebsite=adminMaster.filter(hasMissingWebsite).length;
-    summary.textContent=`☁️ Supabase店舗のみ ・ 表示 ${arr.length}件 / 全${adminMaster.length}件 ・ 未入力 ${missing}件（住所 ${noAddress} / 電話 ${noPhone} / HP ${noWebsite}）`;
+    summary.textContent=`☁️ Supabase店舗のみ ・ 表示 ${visible.length}件 / 該当${arr.length}件 / 全${adminMaster.length}件 ・ 未入力 ${missing}件（住所 ${noAddress} / 電話 ${noPhone} / HP ${noWebsite}）`;
   }
 
-  box.innerHTML=arr.length?arr.map(p=>`
+  const rows=visible.map(p=>`
     <div class="admin-store-row">
       <div class="admin-store-info">
         <strong>${p.emoji||placeTypeEmoji(p.type)} ${escapeHtml(p.name||"名称未登録")}${hasMissingAddress(p)?' <span class="missing-info-badge">📍住所</span>':''}${hasMissingPhone(p)?' <span class="missing-info-badge">☎️電話</span>':''}${hasMissingWebsite(p)?' <span class="missing-info-badge">🌐HP</span>':''}</strong>
@@ -1188,11 +1196,31 @@ function renderAdminAllPlaces(){
       </div>
       <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
     </div>
-  `).join(""):'<div class="empty">該当する店舗はありません</div>';
+  `).join("");
+
+  const more=arr.length-visible.length;
+  const loadMore=more>0?`
+    <div class="admin-load-more-wrap">
+      <button id="adminLoadMoreStoresBtn" type="button" class="secondary admin-load-more-btn">
+        ⬇️ 次の${Math.min(ADMIN_STORE_PAGE_SIZE,more)}件を見る
+      </button>
+      <div class="admin-load-more-note">残り ${more}件</div>
+    </div>
+  `:"";
+
+  box.innerHTML=arr.length?rows+loadMore:'<div class="empty">該当する店舗はありません</div>';
 
   box.querySelectorAll("[data-admin-edit-place]").forEach(btn=>{
     btn.onclick=()=>openAdminEditPlace(btn.dataset.adminEditPlace);
   });
+
+  const moreBtn=$("#adminLoadMoreStoresBtn");
+  if(moreBtn){
+    moreBtn.onclick=()=>{
+      adminStoreVisibleCount+=ADMIN_STORE_PAGE_SIZE;
+      renderAdminAllPlaces();
+    };
+  }
   try{renderNationalMasterDashboard();}catch(e){console.warn(e)}
 }
 function findPlaceByStableKey(key){
@@ -3688,7 +3716,7 @@ bindClick("#deleteCustomPlaceBtn",deleteCustomPlaceForm);
 bindEvent("#customPlaceModal","click",e=>{if(e.target.id==="customPlaceModal")closeCustomPlaceForm();});
 
 
-bindEvent("#adminPlaceSearch","input",renderAdminAllPlaces);
+bindEvent("#adminPlaceSearch","input",()=>{resetAdminStoreVisibleCount();renderAdminAllPlaces();});
 
 bindEvent("#adminStoreFilterAll","click",()=>setAdminStoreFilter("all"));
 bindEvent("#adminStoreFilterMissing","click",()=>setAdminStoreFilter("missing"));
@@ -3698,8 +3726,8 @@ bindEvent("#adminStoreFilterNoWebsite","click",()=>setAdminStoreFilter("noWebsit
 bindEvent("#adminStoreFilterRecommended","click",()=>setAdminStoreFilter("recommended"));
 bindEvent("#adminStoreFilterPublished","click",()=>setAdminStoreFilter("published"));
 bindEvent("#adminStoreFilterHidden","click",()=>setAdminStoreFilter("hidden"));
-bindEvent("#adminStoreTypeFilter","change",renderAdminAllPlaces);
-bindEvent("#adminStorePrefFilter","change",renderAdminAllPlaces);
+bindEvent("#adminStoreTypeFilter","change",()=>{resetAdminStoreVisibleCount();renderAdminAllPlaces();});
+bindEvent("#adminStorePrefFilter","change",()=>{resetAdminStoreVisibleCount();renderAdminAllPlaces();});
 
 bindClick("#closeAdminEditPlaceBtn",closeAdminEditPlace);
 bindClick("#closeAdminEditPlaceBottomBtn",closeAdminEditPlace);
