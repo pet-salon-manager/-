@@ -1932,23 +1932,49 @@ function resetAdminEditedPlace(){
   ensureNearbyPlaces(true);
 }
 
+let adminRecommendedVisibleCount=20;
 function renderAdminRecommendedList(){
   const box=$("#adminRecommendedList");
   if(!box)return;
-  box.innerHTML=places.map(p=>`
+  const source=(typeof getAdminMasterPlaces==="function"?getAdminMasterPlaces():places)||[];
+  const q=($("#adminPlaceSearch")?.value||"").trim().toLowerCase();
+  const rows=source
+    .filter(p=>!q || adminPlaceHaystack(p).includes(q))
+    .slice(0,adminRecommendedVisibleCount);
+
+  box.innerHTML=rows.length?rows.map(p=>`
     <div class="admin-store-row">
       <div class="admin-store-info">
-        <strong>${p.emoji||"🏪"} ${p.name}</strong>
-        <span>${p.area||""}${p.city?"・"+p.city:""} ・ ${p.type||""}</span>
+        <strong>${p.emoji||placeTypeEmoji(p.type)||"🏪"} ${escapeHtml(p.name||"名称未登録")}</strong>
+        <span>${escapeHtml(p.prefecture||p.area||"")}${p.city?"・"+escapeHtml(p.city):""} ・ ${escapeHtml(p.type||"")}</span>
+        <span>☁️ PawPal店舗マスタ</span>
       </div>
       <label class="admin-switch">
-        <input type="checkbox" data-admin-rec="${p.id}" ${p.recommended?"checked":""}>
+        <input type="checkbox" data-admin-rec="${escapeHtml(placeStableKey(p))}" ${p.recommended?"checked":""}>
         <span class="admin-slider"></span>
       </label>
-    </div>`).join("");
+    </div>`).join(""):'<div class="empty">該当する店舗はありません</div>';
+
+  if(source.length>rows.length){
+    box.insertAdjacentHTML("beforeend",`
+      <div class="admin-load-more-wrap">
+        <button id="adminLoadMoreRecommendedBtn" type="button" class="secondary admin-load-more-btn">
+          ⬇️ 次の${Math.min(20,source.length-rows.length)}件を見る
+        </button>
+        <div class="admin-load-more-note">残り ${source.length-rows.length}件</div>
+      </div>
+    `);
+  }
+
   box.querySelectorAll("[data-admin-rec]").forEach(el=>{
-    el.addEventListener("change",()=>setPlaceRecommended(el.dataset.adminRec,el.checked));
+    el.addEventListener("change",()=>{
+      const p=source.find(x=>placeStableKey(x)===el.dataset.adminRec);
+      if(p)setPlaceRecommended(p.id||p.externalId||placeStableKey(p),el.checked);
+    });
   });
+
+  const more=$("#adminLoadMoreRecommendedBtn");
+  if(more)more.onclick=()=>{adminRecommendedVisibleCount+=20;renderAdminRecommendedList();};
 }
 function openPawpalAdmin(){
   renderAdminRecommendedList();
@@ -4020,6 +4046,68 @@ async function ensureStoreClient(){
   }
   throw new Error("Supabase未接続");
 }
+
+function allFetchedStoresMasterStatus(text,type=""){
+  const e=document.getElementById("saveAllFetchedStoresStatus");
+  if(!e)return;
+  e.className="cloud-message"+(type?` ${type}`:"");
+  e.textContent=text||"";
+}
+async function saveAllFetchedStoresToMaster(){
+  const external=(places||[]).filter(p=>!p.cloudStoreId);
+  if(!external.length){
+    allFetchedStoresMasterStatus("現在取得済みの外部店舗は、すべて店舗マスタ登録済みです。","success");
+    alert("現在取得済みの店舗は、すべて店舗マスタ登録済みです。");
+    return;
+  }
+  try{
+    const client=await ensureStoreClient();
+    const {data:{session}}=await client.auth.getSession();
+    if(!session){
+      alert("先にPawPal運営管理者としてログインしてください。");
+      return;
+    }
+
+    allFetchedStoresMasterStatus(`登録中… ${external.length}件`);
+    const payload=external.map(p=>({
+      external_id:String(p.externalId||p.id||placeStableKey(p)),
+      name:p.name||"名称未登録",
+      primary_type:p.type||"その他",
+      prefecture:p.prefecture||p.area||"",
+      address:p.address||"",
+      website:p.url||p.website||"",
+      phone:p.phone||"",
+      business_hours:p.hours||"",
+      latitude:Number.isFinite(p.lat)?p.lat:null,
+      longitude:Number.isFinite(p.lon)?p.lon:null,
+      is_recommended:!!p.recommended,
+      coupon_text:p.couponText||"",
+      reservation_url:p.reservationUrl||"",
+      source_name:p.source||"PawPal外部取得",
+      is_published:true,
+      updated_at:new Date().toISOString()
+    }));
+
+    // 大量登録でも安全なように500件ずつupsert
+    const chunkSize=500;
+    for(let i=0;i<payload.length;i+=chunkSize){
+      const chunk=payload.slice(i,i+chunkSize);
+      const {error}=await client.from("pawpal_stores").upsert(chunk,{onConflict:"external_id"});
+      if(error)throw error;
+      allFetchedStoresMasterStatus(`登録中… ${Math.min(i+chunk.length,payload.length)} / ${payload.length}件`);
+    }
+
+    allFetchedStoresMasterStatus(`☁️ ${payload.length}件を店舗マスタへ登録しました。`,"success");
+    await syncStoreMaster();
+    renderAdminRecommendedList();
+    alert(`${payload.length}件をPawPal店舗マスタへ登録しました。`);
+  }catch(e){
+    console.error(e);
+    allFetchedStoresMasterStatus("店舗マスタへの登録に失敗しました。","error");
+    alert("店舗マスタへの登録に失敗しました。");
+  }
+}
+
 async function saveCheckedShizuokaStores(){
   const rows=shizuokaImportRows.filter(r=>r.checked!==false);
   if(!rows.length){alert("保存する店舗を選択してください。");return;}
@@ -4187,3 +4275,5 @@ bindEvent("#reviewFreeApiQueueBtn","click",reviewFirstFreeApiCandidate);
 });
 
 document.addEventListener("DOMContentLoaded",()=>{try{renderFreeApiQueueResults();}catch(e){console.warn(e)}});
+
+document.addEventListener("DOMContentLoaded",()=>{const b=document.getElementById("saveAllFetchedStoresToMasterBtn");if(b)b.addEventListener("click",saveAllFetchedStoresToMaster);});

@@ -1,5 +1,5 @@
 
-const CACHE='pawpal-v21-4-1-admin-pagination-20260813';
+const CACHE='pawpal-v21-5-all-stores-master-20260813';
 const ASSETS=['./','index.html','style.css','app.js','manifest.json'];
 
 self.addEventListener('install',e=>{
