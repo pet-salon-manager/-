@@ -1170,3 +1170,13 @@ button, .nav-btn, [data-go] { pointer-events:auto; }
 @media(max-width:430px){
   .master-search-row{grid-template-columns:1fr}
 }
+
+/* PawPal v21.5.2 店舗マスタ直接削除 */
+.admin-store-actions,.master-rec-actions{
+  display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex-shrink:0
+}
+.admin-delete-store-btn{
+  border:1px solid #efc9cf;background:#fff4f5;color:#b65362;
+  border-radius:12px;padding:8px 12px;font-weight:800;font-size:13px
+}
+.admin-delete-store-btn:active{transform:scale(.98)}

@@ -186,32 +186,6 @@ const PAWPAL_ENRICH_CACHE_KEY="pawpal_place_enrich_cache_v1";
 
 const PAWPAL_PLACE_OVERRIDES_KEY="pawpal_place_overrides_v1";
 
-const PAWPAL_DELETED_STORES_KEY="pawpal_deleted_store_external_ids_v21_6";
-
-function getDeletedStoreIds(){
-  try{return new Set(JSON.parse(localStorage.getItem(PAWPAL_DELETED_STORES_KEY)||"[]")||[]);}
-  catch(e){return new Set();}
-}
-function rememberDeletedStore(p){
-  const id=String(p?.externalId||p?.id||"").trim();
-  if(!id)return;
-  const ids=getDeletedStoreIds();
-  ids.add(id);
-  localStorage.setItem(PAWPAL_DELETED_STORES_KEY,JSON.stringify([...ids]));
-}
-function isDeletedStore(p){
-  const id=String(p?.externalId||p?.id||"").trim();
-  return !!id && getDeletedStoreIds().has(id);
-}
-function filterDeletedStores(items){
-  const ids=getDeletedStoreIds();
-  if(!ids.size)return items||[];
-  return (items||[]).filter(p=>{
-    const id=String(p?.externalId||p?.id||"").trim();
-    return !id || !ids.has(id);
-  });
-}
-
 function getPlaceOverrides(){
   try{return JSON.parse(localStorage.getItem(PAWPAL_PLACE_OVERRIDES_KEY)||"{}")||{};}
   catch(e){return {};}
@@ -460,7 +434,7 @@ out center tags;`;
       });
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
       const data=await res.json();
-      return filterDeletedStores((data.elements||[]).map(osmElementToPlace).filter(Boolean));
+      return (data.elements||[]).map(osmElementToPlace).filter(Boolean);
     }catch(e){ lastError=e; }
   }
   throw lastError||new Error("検索に失敗しました");
@@ -1220,7 +1194,10 @@ function renderAdminAllPlaces(){
         <span>${escapeHtml(p.type||"")} ・ ${escapeHtml(p.address||p.area||"住所未登録")}</span>
         <span>☁️ Supabase店舗 ・ ${escapeHtml(p.source||"PawPal店舗マスタ")}${p.isPublished===false?" ・ 🚫非公開":""}</span>
       </div>
-      <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
+      <div class="admin-store-actions">
+        <button type="button" class="soft-btn" data-admin-edit-place="${escapeHtml(placeStableKey(p))}">編集</button>
+        <button type="button" class="admin-delete-store-btn" data-admin-delete-place="${escapeHtml(placeStableKey(p))}">削除</button>
+      </div>
     </div>
   `).join("");
 
@@ -1238,6 +1215,9 @@ function renderAdminAllPlaces(){
 
   box.querySelectorAll("[data-admin-edit-place]").forEach(btn=>{
     btn.onclick=()=>openAdminEditPlace(btn.dataset.adminEditPlace);
+  });
+  box.querySelectorAll("[data-admin-delete-place]").forEach(btn=>{
+    btn.onclick=()=>deleteStoreDirectFromMaster(btn.dataset.adminDeletePlace);
   });
 
   const moreBtn=$("#adminLoadMoreStoresBtn");
@@ -1927,6 +1907,36 @@ async function saveAdminEditedPlace(){
   const s=$("#adminSaveStatus");
   if(s)s.textContent="✏️ 店舗情報をPawPal側に保存しました";
 }
+
+async function deleteStoreDirectFromMaster(storeKey){
+  const p=getAdminMasterPlaces().find(x=>placeStableKey(x)===storeKey) || findPlaceByStableKey(storeKey);
+  if(!p || !p.cloudStoreId){
+    alert("削除対象の店舗を確認できませんでした。店舗マスタを再同期してください。");
+    return;
+  }
+
+  const ok=confirm(`「${p.name||"名称未登録"}」をPawPal店舗マスタから削除しますか？\n\nこの操作は取り消せません。`);
+  if(!ok)return;
+
+  try{
+    const {client}=await requireStoreAdminSession();
+    const {error}=await client.from("pawpal_stores").delete().eq("id",p.cloudStoreId);
+    if(error)throw error;
+
+    alert(`「${p.name||"店舗"}」を店舗マスタから削除しました。`);
+    await syncStoreMaster();
+    renderAdminAllPlaces();
+    renderAdminRecommendedList();
+  }catch(e){
+    console.error(e);
+    if(String(e?.message||e)==="ADMIN_LOGIN_REQUIRED"){
+      alert("先にPawPal運営管理者としてログインしてください。");
+    }else{
+      alert("店舗の削除に失敗しました。");
+    }
+  }
+}
+
 async function deleteCloudStore(){
   const key=$("#adminEditPlaceKey").value;
   const p=findPlaceByStableKey(key);
@@ -1937,14 +1947,9 @@ async function deleteCloudStore(){
     adminCloudStatus("削除中…");
     const {error}=await client.from("pawpal_stores").delete().eq("id",p.cloudStoreId);
     if(error)throw error;
-    rememberDeletedStore(p);
-    places=filterDeletedStores(places);
     closeAdminEditPlace();
     await syncStoreMaster();
-    renderPlaces();
-    renderAdminRecommendedList();
-    renderAdminAllPlaces();
-    alert("店舗を削除しました。OpenStreetMap / Overpassから再取得されても、この端末では再登録・再表示しません。");
+    alert("店舗をSupabaseから削除しました。");
   }catch(e){
     console.error(e);
     if(String(e?.message||e)==="ADMIN_LOGIN_REQUIRED")alert("先に運営管理者としてログインしてください。");
@@ -2015,10 +2020,13 @@ function renderAdminRecommendedList(){
         ${p.address?`<span>${escapeHtml(p.address)}</span>`:""}
         <span>☁️ PawPal店舗マスタ</span>
       </div>
-      <label class="admin-switch">
-        <input type="checkbox" data-admin-rec="${escapeHtml(placeStableKey(p))}" ${p.recommended?"checked":""}>
-        <span class="admin-slider"></span>
-      </label>
+      <div class="master-rec-actions">
+        <label class="admin-switch">
+          <input type="checkbox" data-admin-rec="${escapeHtml(placeStableKey(p))}" ${p.recommended?"checked":""}>
+          <span class="admin-slider"></span>
+        </label>
+        <button type="button" class="admin-delete-store-btn" data-master-delete-place="${escapeHtml(placeStableKey(p))}">削除</button>
+      </div>
     </div>`).join(""):'<div class="empty">該当する店舗はありません</div>';
 
   if(filtered.length>rows.length){
@@ -2037,6 +2045,9 @@ function renderAdminRecommendedList(){
       const p=source.find(x=>placeStableKey(x)===el.dataset.adminRec);
       if(p)setPlaceRecommended(p.id||p.externalId||placeStableKey(p),el.checked);
     });
+  });
+  box.querySelectorAll("[data-master-delete-place]").forEach(btn=>{
+    btn.addEventListener("click",()=>deleteStoreDirectFromMaster(btn.dataset.masterDeletePlace));
   });
 
   const more=$("#adminLoadMoreRecommendedBtn");
@@ -3825,7 +3836,6 @@ bindClick("#closeAdminEditPlaceBtn",closeAdminEditPlace);
 bindClick("#closeAdminEditPlaceBottomBtn",closeAdminEditPlace);
 bindClick("#saveAdminEditPlaceBtn",saveAdminEditedPlace);
 bindClick("#resetAdminEditPlaceBtn",resetAdminEditedPlace);
-bindClick("#deleteCloudStoreBtn",deleteCloudStore);
 bindEvent("#adminEditPlaceModal","click",e=>{if(e.target.id==="adminEditPlaceModal")closeAdminEditPlace();});
 
 /* PawPal v20.0 Supabase Store Master */
@@ -4121,7 +4131,7 @@ function allFetchedStoresMasterStatus(text,type=""){
   e.textContent=text||"";
 }
 async function saveAllFetchedStoresToMaster(){
-  const external=filterDeletedStores(places||[]).filter(p=>!p.cloudStoreId);
+  const external=(places||[]).filter(p=>!p.cloudStoreId);
   if(!external.length){
     allFetchedStoresMasterStatus("現在取得済みの外部店舗は、すべて店舗マスタ登録済みです。","success");
     alert("現在取得済みの店舗は、すべて店舗マスタ登録済みです。");
@@ -4176,8 +4186,7 @@ async function saveAllFetchedStoresToMaster(){
 }
 
 async function saveCheckedShizuokaStores(){
-  const deletedIds=getDeletedStoreIds();
-  const rows=shizuokaImportRows.filter(r=>r.checked!==false && !deletedIds.has(String(r.external_id||"")));
+  const rows=shizuokaImportRows.filter(r=>r.checked!==false);
   if(!rows.length){alert("保存する店舗を選択してください。");return;}
   try{
     const client=await ensureStoreClient();
@@ -4353,5 +4362,3 @@ bindEvent("#masterStoreTypeFilter","change",()=>{adminRecommendedVisibleCount=20
 bindEvent("#masterStorePrefFilter","change",()=>{adminRecommendedVisibleCount=20;renderAdminRecommendedList();});
 
 });
-
-/* PawPal v21.6: 店舗削除ボタン接続 + 削除済み店舗の再取得/再登録防止 */
